@@ -1,0 +1,16 @@
+﻿{
+    "ModuleName":  "IntuneShared",
+    "ModuleVersion":  "1.0.0",
+    "BuildTimestampUtc":  "2026-09-01T03:01:51.8644417Z",
+    "GitCommit":  "d768555",
+    "ComponentHashes":  {
+                            "IntuneShared.psd1":  "22E3E28D7260A8C638F8342E0033B441EEC557E564443F0EDBDE7A99F5B3B9D5",
+                            "Public\\Out-AsciiQrCode.ps1":  "3454A74DB71901AC88E2A384B65C9B44FF5A6E50925918359F9E5BC09286247F",
+                            "Public\\New-BuildManifest.ps1":  "82FE558FE21C159000428513BBAF5ADF757C57ABDDD815FB759828F12D7CB2C7",
+                            "tests\\IntuneShared.Tests.ps1":  "A92EF36D2549A606977ACD987AEEA9F5CE8F804CBACAF82A8AC4D81596243D49",
+                            "Public\\Invoke-ResilientGraphRest.ps1":  "5AE17B0550CFD6930544102DE2487323589F6E05E36BE4918BD7F9CC4A54044D",
+                            "Public\\Connect-GraphToken.ps1":  "AFAA7F5809694724840B39609310B71CAE4DACD12A175DE7BFB9DA9B34772A16",
+                            "Public\\Test-StagedNetwork.ps1":  "832D5446FF0524820F53C1B1ACB3D65C385E2B7F300C3530A91F72C21E0B07DD",
+                            "IntuneShared.psm1":  "4416A1F57D648150BC787C09695FCB32B3A8FF9DF0AB9824683E5A4DA5976BF8"
+                        }
+}
