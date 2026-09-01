@@ -5,8 +5,8 @@
     Author = 'Matthew Bubb'
     CompanyName = 'OnYaChamp.com'
     Copyright = '(c) 2026 Matthew Bubb. All rights reserved.'
-    Description = 'Shared transport, resilient Graph REST client, and token provider kernel for modern endpoint management.'
-    PowerShellVersion = '5.1'
+    Description = 'High-performance shared transport, resilient Graph REST client, and token provider kernel for modern PowerShell 7+ endpoint management.'
+    PowerShellVersion = '7.2'
     RequiredModules = @()
     FunctionsToExport = @(
         'Invoke-ResilientGraphRest',
