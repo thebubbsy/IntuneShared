@@ -3,7 +3,7 @@
     Executes a 7-stage network, cloud connectivity, and HTTPS time synchronization diagnostic probe.
 .DESCRIPTION
     Performs staged verification across physical link, gateway, DNS, TCP socket, TLS handshake,
-    HTTPS time synchronization over port 443, captive portal interception, and Autopilot endpoints.
+    HTTPS time synchronization over port 443 with 5-minute Kerberos tolerance, and Autopilot endpoints.
 #>
 function Test-StagedNetwork {
     [CmdletBinding()]
@@ -12,7 +12,10 @@ function Test-StagedNetwork {
         [int]$TimeoutSeconds = 5,
 
         [Parameter()]
-        [switch]$AutoSyncClock = $true
+        [switch]$AutoSyncClock = $true,
+
+        [Parameter()]
+        [int]$MaxTimeSkewSeconds = 300
     )
 
     $stages = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -87,7 +90,7 @@ function Test-StagedNetwork {
     })
     if (-not $tcpOk) { $allPassed = $false }
 
-    # Stage 5: HTTPS Clock Sync & TLS Handshake (Replaces UDP 123 NTP with TCP 443 Date Header)
+    # Stage 5: HTTPS Clock Sync (5-Minute Kerberos/TLS Tolerance Threshold)
     $tlsAndTimeOk = $false
     $timeSkewSec = 0
     if ($tcpOk) {
@@ -102,9 +105,8 @@ function Test-StagedNetwork {
                 $localTimeUtc = (Get-Date).ToUniversalTime()
                 $timeSkewSec = [Math]::Round([Math]::Abs(($localTimeUtc - $cloudTimeUtc).TotalSeconds), 1)
 
-                if ($timeSkewSec -gt 30 -and $AutoSyncClock) {
-                    Write-Warning "Detected $timeSkewSec sec clock skew in OOBE. Synchronizing system clock..."
-                    # Correct system time
+                if ($timeSkewSec -gt $MaxTimeSkewSeconds -and $AutoSyncClock) {
+                    Write-Warning "Detected $timeSkewSec sec clock skew (> $MaxTimeSkewSeconds sec threshold). Resynchronizing system clock..."
                     try {
                         [Microsoft.VisualBasic.DateAndTime]::TimeString = $cloudTimeUtc.ToLocalTime().ToString('HH:mm:ss')
                     } catch { }
@@ -122,7 +124,7 @@ function Test-StagedNetwork {
         Stage       = 5
         Name        = 'HTTPS Time & TLS Sync'
         Success     = $tlsAndTimeOk
-        Description = if ($tlsAndTimeOk) { "TLS verified (Clock Skew: $timeSkewSec sec against Entra ID)" } else { "TLS handshake or HTTPS Date header probe failed" }
+        Description = if ($tlsAndTimeOk) { "TLS verified (Clock Skew: $timeSkewSec sec within $MaxTimeSkewSeconds sec tolerance)" } else { "TLS handshake or HTTPS Date header probe failed" }
     })
     if (-not $tlsAndTimeOk) { $allPassed = $false }
 
