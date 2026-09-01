@@ -1,15 +1,18 @@
 <#
 .SYNOPSIS
-    Executes a 7-stage network and cloud connectivity diagnostic probe.
+    Executes a 7-stage network, cloud connectivity, and HTTPS time synchronization diagnostic probe.
 .DESCRIPTION
     Performs staged verification across physical link, gateway, DNS, TCP socket, TLS handshake,
-    captive portal interception, and Microsoft Cloud endpoints. Compatible with PowerShell 5.1+.
+    HTTPS time synchronization over port 443, captive portal interception, and Autopilot endpoints.
 #>
 function Test-StagedNetwork {
     [CmdletBinding()]
     param(
         [Parameter()]
-        [int]$TimeoutSeconds = 5
+        [int]$TimeoutSeconds = 5,
+
+        [Parameter()]
+        [switch]$AutoSyncClock = $true
     )
 
     $stages = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -41,27 +44,19 @@ function Test-StagedNetwork {
     # Stage 3: DNS Resolution
     $endpoints = @('login.microsoftonline.com', 'graph.microsoft.com', 'ztd.dds.microsoft.com')
     $dnsOk = $true
-    $resolvedIps = @()
-
     foreach ($ep in $endpoints) {
         try {
             $ips = [System.Net.Dns]::GetHostAddresses($ep)
-            if ($ips.Count -gt 0) {
-                $resolvedIps += "$ep -> $($ips[0].IPAddressToString)"
-            } else {
-                $dnsOk = $false
-            }
+            if ($ips.Count -eq 0) { $dnsOk = $false }
         }
-        catch {
-            $dnsOk = $false
-        }
+        catch { $dnsOk = $false }
     }
 
     $stages.Add([PSCustomObject]@{
         Stage       = 3
         Name        = 'DNS Resolution'
         Success     = $dnsOk
-        Description = if ($dnsOk) { "All cloud hostnames resolved successfully" } else { "DNS resolution failed for one or more endpoints" }
+        Description = if ($dnsOk) { "Cloud hostnames resolved successfully" } else { "DNS resolution failed for one or more endpoints" }
     })
     if (-not $dnsOk) { $allPassed = $false }
 
@@ -92,30 +87,46 @@ function Test-StagedNetwork {
     })
     if (-not $tcpOk) { $allPassed = $false }
 
-    # Stage 5: TLS Handshake
-    $tlsOk = $false
+    # Stage 5: HTTPS Clock Sync & TLS Handshake (Replaces UDP 123 NTP with TCP 443 Date Header)
+    $tlsAndTimeOk = $false
+    $timeSkewSec = 0
     if ($tcpOk) {
         try {
-            $tcpClient = New-Object System.Net.Sockets.TcpClient('login.microsoftonline.com', 443)
-            $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false)
-            $sslStream.AuthenticateAsClient('login.microsoftonline.com')
-            if ($sslStream.IsAuthenticated -and $sslStream.IsEncrypted) {
-                $tlsOk = $true
+            $req = [System.Net.HttpWebRequest]::Create('https://login.microsoftonline.com')
+            $req.Method = 'HEAD'
+            $req.Timeout = $TimeoutSeconds * 1000
+            $resp = $req.GetResponse()
+            
+            if ($resp.Headers['Date']) {
+                $cloudTimeUtc = [DateTime]::Parse($resp.Headers['Date']).ToUniversalTime()
+                $localTimeUtc = (Get-Date).ToUniversalTime()
+                $timeSkewSec = [Math]::Round([Math]::Abs(($localTimeUtc - $cloudTimeUtc).TotalSeconds), 1)
+
+                if ($timeSkewSec -gt 30 -and $AutoSyncClock) {
+                    Write-Warning "Detected $timeSkewSec sec clock skew in OOBE. Synchronizing system clock..."
+                    # Correct system time
+                    try {
+                        [Microsoft.VisualBasic.DateAndTime]::TimeString = $cloudTimeUtc.ToLocalTime().ToString('HH:mm:ss')
+                    } catch { }
+                }
+                $tlsAndTimeOk = $true
             }
-            $sslStream.Close()
-            $tcpClient.Close()
-        } catch { }
+            $resp.Close()
+        }
+        catch {
+            $tlsAndTimeOk = $false
+        }
     }
 
     $stages.Add([PSCustomObject]@{
         Stage       = 5
-        Name        = 'TLS Handshake'
-        Success     = $tlsOk
-        Description = if ($tlsOk) { "TLS handshake verified with valid certificate chain" } else { "TLS negotiation failed (possible MITM/SSL inspection)" }
+        Name        = 'HTTPS Time & TLS Sync'
+        Success     = $tlsAndTimeOk
+        Description = if ($tlsAndTimeOk) { "TLS verified (Clock Skew: $timeSkewSec sec against Entra ID)" } else { "TLS handshake or HTTPS Date header probe failed" }
     })
-    if (-not $tlsOk) { $allPassed = $false }
+    if (-not $tlsAndTimeOk) { $allPassed = $false }
 
-    # Stage 6: Captive Portal Probe
+    # Stage 6: Captive Portal Check
     $captivePortal = $false
     try {
         $ncsiReq = [System.Net.HttpWebRequest]::Create('http://www.msftconnecttest.com/connecttest.txt')
@@ -151,7 +162,6 @@ function Test-StagedNetwork {
         $resp.Close()
         $autopilotEpOk = $true
     } catch {
-        # Autopilot endpoint may return 401/403 or 200, both prove reachable
         if ($_.Exception.Response) { $autopilotEpOk = $true }
     }
 
