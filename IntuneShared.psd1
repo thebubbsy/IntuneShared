@@ -18,4 +18,19 @@
     CmdletsToExport = @()
     VariablesToExport = @()
     AliasesToExport = @()
+    PrivateData = @{
+        PSData = @{
+            Tags = @('intune', 'graph-api', 'transport', 'rest-client', 'msal', 'network-diagnostics', 'endpoint-management', 'powershell7')
+            LicenseUri = 'https://github.com/thebubbsy/IntuneShared/blob/main/LICENSE'
+            ProjectUri = 'https://github.com/thebubbsy/IntuneShared'
+            ReleaseNotes = @'
+v1.0.0 - Initial Release
+- Resilient Graph REST client with jittered exponential backoff and HTTP 429 Retry-After handling.
+- Multi-provider MSAL token engine supporting Device Code Flow, Client Secret, and Certificate auth.
+- 7-Stage network diagnostic ladder (Interface, Gateway, DNS, Port, TLS, Portal, Cloud).
+- Decoupled terminal ASCII QR visualizer.
+- Component integrity digest and SHA256 build manifest generator.
+'@
+        }
+    }
 }
