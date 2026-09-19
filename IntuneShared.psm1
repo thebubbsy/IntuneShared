@@ -18,5 +18,7 @@ Export-ModuleMember -Function @(
     'Connect-GraphToken',
     'Test-StagedNetwork',
     'Out-AsciiQrCode',
-    'New-BuildManifest'
+    'New-BuildManifest',
+    'Assert-TestTenantSafety',
+    'Write-IntuneLog'
 )

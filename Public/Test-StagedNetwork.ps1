@@ -108,7 +108,7 @@ function Test-StagedNetwork {
                 if ($timeSkewSec -gt $MaxTimeSkewSeconds -and $AutoSyncClock) {
                     Write-Warning "Detected $timeSkewSec sec clock skew (> $MaxTimeSkewSeconds sec threshold). Resynchronizing system clock..."
                     try {
-                        [Microsoft.VisualBasic.DateAndTime]::TimeString = $cloudTimeUtc.ToLocalTime().ToString('HH:mm:ss')
+                        Set-Date -Date $cloudTimeUtc.ToLocalTime() -ErrorAction SilentlyContinue
                     } catch { }
                 }
                 $tlsAndTimeOk = $true
@@ -116,7 +116,17 @@ function Test-StagedNetwork {
             $resp.Close()
         }
         catch {
-            $tlsAndTimeOk = $false
+            $webResp = $null
+            if ($_.Exception -is [System.Net.WebException] -and $_.Exception.Response) {
+                $webResp = $_.Exception.Response
+            } elseif ($_.Exception.InnerException -is [System.Net.WebException] -and $_.Exception.InnerException.Response) {
+                $webResp = $_.Exception.InnerException.Response
+            }
+
+            if ($webResp) {
+                $tlsAndTimeOk = $true
+                try { $webResp.Close() } catch { }
+            }
         }
     }
 
@@ -160,11 +170,26 @@ function Test-StagedNetwork {
     try {
         $req = [System.Net.HttpWebRequest]::Create('https://ztd.dds.microsoft.com')
         $req.Timeout = $TimeoutSeconds * 1000
+        $req.Method = 'HEAD'
         $resp = $req.GetResponse()
         $resp.Close()
         $autopilotEpOk = $true
     } catch {
-        if ($_.Exception.Response) { $autopilotEpOk = $true }
+        $webResp = $null
+        if ($_.Exception -is [System.Net.WebException] -and $_.Exception.Response) {
+            $webResp = $_.Exception.Response
+        } elseif ($_.Exception.InnerException -is [System.Net.WebException] -and $_.Exception.InnerException.Response) {
+            $webResp = $_.Exception.InnerException.Response
+        }
+
+        if ($webResp) {
+            $autopilotEpOk = $true
+            try { $webResp.Close() } catch { }
+        } elseif ($_.Exception.Response) {
+            $autopilotEpOk = $true
+        } elseif ($_.Exception.Message -match '404|403|401|Method Not Allowed') {
+            $autopilotEpOk = $true
+        }
     }
 
     $stages.Add([PSCustomObject]@{

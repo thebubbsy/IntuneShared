@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Acquires an OAuth 2.0 access token for Microsoft Graph with explicit permission provider models.
+    Acquires an OAuth 2.0 access token for Microsoft Graph with partitioned cache isolation and token refresh.
 .DESCRIPTION
-    Implements Device Code Flow (interactive/OOBE), Client Secret (application), and Certificate
-    authentication. Attaches permission scope metadata to prevent delegated/application mismatches.
+    Supports Client Secret (Application) and Device Code (Delegated) authentication flows.
+    Isolates cached credentials by TenantId, ClientId, and Scopes.
 #>
 function Connect-GraphToken {
     [CmdletBinding(DefaultParameterSetName = 'DeviceCode')]
@@ -27,15 +27,55 @@ function Connect-GraphToken {
         [switch]$ForceRefresh
     )
 
-    # 1. Check in-memory cache
-    if (-not $ForceRefresh -and $script:GraphAuthContext -and $script:GraphAuthContext.ExpiresOn -gt [datetime]::UtcNow.AddMinutes(2)) {
-        return $script:GraphAuthContext.AccessToken
+    if (-not $script:GraphTokenCache) {
+        $script:GraphTokenCache = [System.Collections.Generic.Dictionary[string, object]]::new()
     }
 
-    $tokenEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
     $scopeString = [string]::Join(' ', $Scopes)
+    $cacheKey = "$($TenantId):$($ClientId):$($scopeString)"
+    $tokenEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/token"
 
-    # 2. Client Secret Flow (Application Permission Scope)
+    # 1. Check partitioned cache
+    if (-not $ForceRefresh -and $script:GraphTokenCache.ContainsKey($cacheKey)) {
+        $cachedEntry = $script:GraphTokenCache[$cacheKey]
+        if ($cachedEntry.ExpiresOn -gt [datetime]::UtcNow.AddMinutes(2)) {
+            $script:GraphAuthContext = $cachedEntry
+            return $cachedEntry.AccessToken
+        }
+
+        # 2. Token Refresh Flow (if RefreshToken is present)
+        if ($cachedEntry.RefreshToken) {
+            Write-Verbose "Access token expired for $cacheKey. Attempting refresh via grant_type=refresh_token..."
+            try {
+                $refreshBody = @{
+                    client_id     = $ClientId
+                    grant_type    = 'refresh_token'
+                    refresh_token = $cachedEntry.RefreshToken
+                    scope         = $scopeString
+                }
+                $refreshRes = Invoke-RestMethod -Uri $tokenEndpoint -Method POST -Body $refreshBody -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
+
+                $authObj = [PSCustomObject]@{
+                    AccessToken    = $refreshRes.access_token
+                    RefreshToken   = if ($refreshRes.refresh_token) { $refreshRes.refresh_token } else { $cachedEntry.RefreshToken }
+                    TokenType      = $refreshRes.token_type
+                    ExpiresOn      = [datetime]::UtcNow.AddSeconds($refreshRes.expires_in)
+                    TenantId       = $TenantId
+                    ClientId       = $ClientId
+                    PermissionType = $cachedEntry.PermissionType
+                    Scopes         = $Scopes
+                }
+                $script:GraphTokenCache[$cacheKey] = $authObj
+                $script:GraphAuthContext = $authObj
+                return $authObj.AccessToken
+            }
+            catch {
+                Write-Warning "Token refresh failed: $($_.Exception.Message). Falling back to full authentication."
+            }
+        }
+    }
+
+    # 3. Client Secret Flow (Application Scope)
     if ($PSCmdlet.ParameterSetName -eq 'ClientSecret') {
         $body = @{
             client_id     = $ClientId
@@ -46,8 +86,9 @@ function Connect-GraphToken {
 
         $res = Invoke-RestMethod -Uri $tokenEndpoint -Method POST -Body $body -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
         
-        $script:GraphAuthContext = [PSCustomObject]@{
+        $authObj = [PSCustomObject]@{
             AccessToken    = $res.access_token
+            RefreshToken   = $null
             TokenType      = $res.token_type
             ExpiresOn      = [datetime]::UtcNow.AddSeconds($res.expires_in)
             TenantId       = $TenantId
@@ -55,10 +96,12 @@ function Connect-GraphToken {
             PermissionType = 'Application'
             Scopes         = $Scopes
         }
+        $script:GraphTokenCache[$cacheKey] = $authObj
+        $script:GraphAuthContext = $authObj
         return $res.access_token
     }
 
-    # 3. Device Code Flow (Delegated Permission Scope for OOBE)
+    # 4. Device Code Flow (Delegated Scope)
     if ($PSCmdlet.ParameterSetName -eq 'DeviceCode' -or $DeviceCode) {
         $deviceCodeEndpoint = "https://login.microsoftonline.com/$TenantId/oauth2/v2.0/devicecode"
         $dcBody = @{
@@ -93,7 +136,7 @@ function Connect-GraphToken {
                 $tokenRes = Invoke-RestMethod -Uri $tokenEndpoint -Method POST -Body $pollBody -ContentType 'application/x-www-form-urlencoded' -ErrorAction Stop
                 Write-Host " [OK] Authenticated!" -ForegroundColor Green
 
-                $script:GraphAuthContext = [PSCustomObject]@{
+                $authObj = [PSCustomObject]@{
                     AccessToken    = $tokenRes.access_token
                     RefreshToken   = $tokenRes.refresh_token
                     TokenType      = $tokenRes.token_type
@@ -103,6 +146,8 @@ function Connect-GraphToken {
                     PermissionType = 'Delegated'
                     Scopes         = $Scopes
                 }
+                $script:GraphTokenCache[$cacheKey] = $authObj
+                $script:GraphAuthContext = $authObj
                 return $tokenRes.access_token
             }
             catch {

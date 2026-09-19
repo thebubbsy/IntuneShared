@@ -8,12 +8,17 @@
     Description = 'High-performance shared transport, resilient Graph REST client, and token provider kernel for modern PowerShell 7+ endpoint management.'
     PowerShellVersion = '7.2'
     RequiredModules = @()
+    ScriptsToProcess = @(
+        'Private\TenantSafetyViolationException.ps1'
+    )
     FunctionsToExport = @(
         'Invoke-ResilientGraphRest',
         'Connect-GraphToken',
         'Test-StagedNetwork',
         'Out-AsciiQrCode',
-        'New-BuildManifest'
+        'New-BuildManifest',
+        'Assert-TestTenantSafety',
+        'Write-IntuneLog'
     )
     CmdletsToExport = @()
     VariablesToExport = @()
