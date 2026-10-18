@@ -24,8 +24,24 @@ function Connect-GraphToken {
         [string[]]$Scopes = @('https://graph.microsoft.com/.default'),
 
         [Parameter()]
-        [switch]$ForceRefresh
+        [switch]$ForceRefresh,
+
+        [Parameter()]
+        [switch]$ShowSessionBanner
     )
+
+    function Write-GraphSessionHud {
+        param([PSCustomObject]$Context, [string]$SourceMode)
+        $ttlMins = [Math]::Max(0, [Math]::Round(($Context.ExpiresOn - [datetime]::UtcNow).TotalMinutes, 1))
+        $expUtc = $Context.ExpiresOn.ToString('HH:mm:ss') + ' UTC'
+        $scopeCount = @($Context.Scopes).Count
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host "  | MICROSOFT GRAPH OAUTH 2.0 SESSION TELEMETRY                          |" -ForegroundColor Cyan
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host ("  | Auth Mode : {0,-24} Tenant : {1,-22} |" -f "$($Context.PermissionType) ($SourceMode)", $Context.TenantId) -ForegroundColor Green
+        Write-Host ("  | Token TTL : {0,-24} Scopes : {1,-22} |" -f "$ttlMins min ($expUtc)", "$scopeCount scope(s)") -ForegroundColor Gray
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+    }
 
     if (-not $script:GraphTokenCache) {
         $script:GraphTokenCache = [System.Collections.Generic.Dictionary[string, object]]::new()
@@ -40,6 +56,7 @@ function Connect-GraphToken {
         $cachedEntry = $script:GraphTokenCache[$cacheKey]
         if ($cachedEntry.ExpiresOn -gt [datetime]::UtcNow.AddMinutes(2)) {
             $script:GraphAuthContext = $cachedEntry
+            if ($ShowSessionBanner) { Write-GraphSessionHud -Context $cachedEntry -SourceMode 'CacheHit' }
             return $cachedEntry.AccessToken
         }
 
@@ -67,6 +84,7 @@ function Connect-GraphToken {
                 }
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
+                if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'RefreshToken' }
                 return $authObj.AccessToken
             }
             catch {
@@ -98,6 +116,7 @@ function Connect-GraphToken {
         }
         $script:GraphTokenCache[$cacheKey] = $authObj
         $script:GraphAuthContext = $authObj
+        if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'ClientSecret' }
         return $res.access_token
     }
 
@@ -148,6 +167,7 @@ function Connect-GraphToken {
                 }
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
+                Write-GraphSessionHud -Context $authObj -SourceMode 'DeviceCode'
                 return $tokenRes.access_token
             }
             catch {

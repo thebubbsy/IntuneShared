@@ -1,8 +1,8 @@
 ﻿{
     "ModuleName":  "IntuneShared",
-    "ModuleVersion":  "1.0.2",
-    "BuildTimestampUtc":  "2026-10-18T13:04:34.1434320Z",
-    "GitCommit":  "bfed0a1",
+    "ModuleVersion":  "1.0.0",
+    "BuildTimestampUtc":  "2026-10-18T19:03:11.8876507Z",
+    "GitCommit":  "a0e9c130",
     "ComponentHashes":  {
                             "Public\\Out-AsciiQrCode.ps1":  "89E46E975B331BFDD0EBD570F2B57F8A4AF0C77EBFA8FFC0FAF7D963D6337565",
                             "Private\\TenantSafetyViolationException.ps1":  "96F219D93DE1310DA98224BAA96EEBF4DCBD75AB3EB4649744D930AD7FF5AA85",
@@ -16,7 +16,7 @@
                             "IntuneShared.psd1":  "E2569F8F7C520F6AAD3294C3BD2FB4771F65DC382F9A4F563880C4353F6A94EE",
                             "Public\\New-BuildManifest.ps1":  "82FE558FE21C159000428513BBAF5ADF757C57ABDDD815FB759828F12D7CB2C7",
                             "Public\\Write-IntuneLog.ps1":  "7465AEB537BE858B02490A53D0AEED884FE9AED7D23F5ADFE26E89C91DF5BE75",
-                            "Public\\Connect-GraphToken.ps1":  "4AF33EF028C961551C902D6514C42235CD8BA90EED5E5237953E717F39CFD636",
+                            "Public\\Connect-GraphToken.ps1":  "1A41FB418FAA86C8739615775A0E271A89452EFF3CA6183AB87CA4F079F69C69",
                             "tests\\Integration.Tests.ps1":  "7D37B50F9FAEA25E8D4C340AAF286CCB0AAAA64EDB072EF19A57C16EEAA909A8"
                         }
 }
