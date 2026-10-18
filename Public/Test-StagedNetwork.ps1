@@ -15,7 +15,10 @@ function Test-StagedNetwork {
         [switch]$AutoSyncClock = $true,
 
         [Parameter()]
-        [int]$MaxTimeSkewSeconds = 300
+        [int]$MaxTimeSkewSeconds = 300,
+
+        [Parameter()]
+        [switch]$Quiet
     )
 
     $stages = [System.Collections.Generic.List[PSCustomObject]]::new()
@@ -201,6 +204,17 @@ function Test-StagedNetwork {
     if (-not $autopilotEpOk) { $allPassed = $false }
 
     $passedCount = @($stages | Where-Object { $_.Success }).Count
+
+    if (-not $Quiet) {
+        $bar = ('#' * $passedCount) + ('-' * (7 - $passedCount))
+        $hdrColor = if ($allPassed -and $passedCount -eq 7) { 'Green' } else { 'Yellow' }
+        Write-Host "  [IntuneShared] 7-Stage Cloud Network Ladder [$bar] ($passedCount/7 Passed)" -ForegroundColor $hdrColor
+        foreach ($st in $stages) {
+            $tag = if ($st.Success) { '[PASS]' } else { '[FAIL]' }
+            $col = if ($st.Success) { 'Green' } else { 'Red' }
+            Write-Host ("    {0} Stage {1}: {2,-22} - {3}" -f $tag, $st.Stage, $st.Name, $st.Description) -ForegroundColor $col
+        }
+    }
 
     return [PSCustomObject]@{
         IsFullyReady = ($allPassed -and $passedCount -eq 7)
