@@ -35,7 +35,10 @@ function Assert-TestTenantSafety {
         [switch]$PassThru,
 
         [Parameter()]
-        [switch]$AllowBypass
+        [switch]$AllowBypass,
+
+        [Parameter()]
+        [switch]$ShowBanner
     )
 
     if ($AllowBypass -and $env:INTUNE_ALLOW_PRODUCTION_OVERRIDE -eq 'true') {
@@ -69,6 +72,12 @@ function Assert-TestTenantSafety {
             Write-Error $msg
             throw [TenantSafetyViolationException]::new($msg)
         }
+    }
+
+    if ($ShowBanner) {
+        $tName = if ($TenantName) { $TenantName } else { 'Authorized Sandbox' }
+        $tId   = if ($TenantId) { $TenantId } else { $configuredTestTenantId }
+        Write-Host "  [GUARDRAIL LOCKED] Non-Production Sandbox Verified: $tName ($tId)" -ForegroundColor Green
     }
 
     Write-Verbose "Tenant safety assertion verified for tenant '$TenantId' ('$TenantName')."
