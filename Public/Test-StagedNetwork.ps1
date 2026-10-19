@@ -18,6 +18,9 @@ function Test-StagedNetwork {
         [int]$MaxTimeSkewSeconds = 300,
 
         [Parameter()]
+        [switch]$CopyReport,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -208,12 +211,42 @@ function Test-StagedNetwork {
     if (-not $Quiet) {
         $bar = ('#' * $passedCount) + ('-' * (7 - $passedCount))
         $hdrColor = if ($allPassed -and $passedCount -eq 7) { 'Green' } else { 'Yellow' }
+        $verdictText = if ($allPassed -and $passedCount -eq 7) { 'CLOUD READY' } else { 'DEGRADED / BLOCKED' }
+        $borderColor = if ($allPassed -and $passedCount -eq 7) { 'DarkGreen' } else { 'DarkYellow' }
         Write-Host "  [IntuneShared] 7-Stage Cloud Network Ladder [$bar] ($passedCount/7 Passed)" -ForegroundColor $hdrColor
         foreach ($st in $stages) {
             $tag = if ($st.Success) { '[PASS]' } else { '[FAIL]' }
             $col = if ($st.Success) { 'Green' } else { 'Red' }
             Write-Host ("    {0} Stage {1}: {2,-22} - {3}" -f $tag, $st.Stage, $st.Name, $st.Description) -ForegroundColor $col
         }
+        $tcpSummary = if ($tcpOk) { "$latencyMs ms (login.microsoftonline.com:443)" } else { 'Unreachable' }
+        $skewSummary = if ($tlsAndTimeOk) { "$timeSkewSec sec (Max $MaxTimeSkewSeconds sec)" } else { 'Unverified' }
+        $portalSummary = if (-not $captivePortal) { 'Clear (Direct Cloud Route)' } else { 'Intercepted (301/302 Redirect)' }
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor $borderColor
+        Write-Host ("  | CLOUD NETWORK & TIME SYNC POSTURE SUMMARY     [{0,20}] |" -f $verdictText) -ForegroundColor $hdrColor
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor $borderColor
+        Write-Host ("  | Stages Passed : {0,-22} TCP 443 RTT : {1,-16} |" -f "$passedCount / 7 [$bar]", $(if ($tcpOk) { "$latencyMs ms" } else { 'FAIL' })) -ForegroundColor White
+        Write-Host ("  | Clock Skew    : {0,-22} Captive     : {1,-16} |" -f $skewSummary, $(if (-not $captivePortal) { 'CLEAR' } else { 'DETECTED' })) -ForegroundColor Gray
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor $borderColor
+    }
+
+    if ($CopyReport) {
+        try {
+            $mdLines = [System.Collections.Generic.List[string]]::new()
+            $mdLines.Add("### IntuneShared 7-Stage Cloud Network & Time Sync Report")
+            $mdLines.Add("- **Host:** ``$($env:COMPUTERNAME)`` | **Passed:** $passedCount/7 | **TCP 443 RTT:** ${latencyMs}ms | **Clock Skew:** ${timeSkewSec}s")
+            $mdLines.Add("")
+            $mdLines.Add("| Stage | Check | Status | Details |")
+            $mdLines.Add("| :---: | :--- | :---: | :--- |")
+            foreach ($st in $stages) {
+                $statusStr = if ($st.Success) { 'PASS' } else { 'FAIL' }
+                $mdLines.Add("| $($st.Stage) | **$($st.Name)** | ``$statusStr`` | $($st.Description) |")
+            }
+            Set-Clipboard -Value ($mdLines -join "`r`n") -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic Report (Markdown) to clipboard." -ForegroundColor Green
+            }
+        } catch { }
     }
 
     return [PSCustomObject]@{

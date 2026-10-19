@@ -27,8 +27,21 @@ function Connect-GraphToken {
         [switch]$ForceRefresh,
 
         [Parameter()]
-        [switch]$ShowSessionBanner
+        [switch]$ShowSessionBanner,
+
+        [Parameter()]
+        [switch]$CopyToken
     )
+
+    function Copy-GraphTokenToClipboard {
+        param([string]$TokenValue)
+        if ($CopyToken -and $TokenValue) {
+            try {
+                Set-Clipboard -Value $TokenValue -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied OAuth 2.0 Bearer Access Token to clipboard." -ForegroundColor Green
+            } catch { }
+        }
+    }
 
     function Write-GraphSessionHud {
         param([PSCustomObject]$Context, [string]$SourceMode)
@@ -57,6 +70,7 @@ function Connect-GraphToken {
         if ($cachedEntry.ExpiresOn -gt [datetime]::UtcNow.AddMinutes(2)) {
             $script:GraphAuthContext = $cachedEntry
             if ($ShowSessionBanner) { Write-GraphSessionHud -Context $cachedEntry -SourceMode 'CacheHit' }
+            Copy-GraphTokenToClipboard -TokenValue $cachedEntry.AccessToken
             return $cachedEntry.AccessToken
         }
 
@@ -85,6 +99,7 @@ function Connect-GraphToken {
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
                 if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'RefreshToken' }
+                Copy-GraphTokenToClipboard -TokenValue $authObj.AccessToken
                 return $authObj.AccessToken
             }
             catch {
@@ -117,6 +132,7 @@ function Connect-GraphToken {
         $script:GraphTokenCache[$cacheKey] = $authObj
         $script:GraphAuthContext = $authObj
         if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'ClientSecret' }
+        Copy-GraphTokenToClipboard -TokenValue $res.access_token
         return $res.access_token
     }
 
@@ -168,6 +184,7 @@ function Connect-GraphToken {
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
                 Write-GraphSessionHud -Context $authObj -SourceMode 'DeviceCode'
+                Copy-GraphTokenToClipboard -TokenValue $tokenRes.access_token
                 return $tokenRes.access_token
             }
             catch {
