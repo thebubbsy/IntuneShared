@@ -32,8 +32,13 @@ function Invoke-ResilientGraphRest {
         [int]$MaxRetries = 5,
 
         [Parameter()]
-        [int]$BaseDelaySeconds = 2
+        [int]$BaseDelaySeconds = 2,
+
+        [Parameter()]
+        [switch]$ShowTelemetry
     )
+
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
     # 1. Token Injection (on a copy - never mutate the caller's hashtable)
     $Headers = if ($Headers) { $Headers.Clone() } else { @{} }
@@ -81,6 +86,14 @@ function Invoke-ResilientGraphRest {
             $response = Invoke-RestMethod @requestParams
             $success = $true
             $result = $response
+            $stopwatch.Stop()
+
+            if ($ShowTelemetry) {
+                $shortPath = $effectiveUri -replace '^https?://[^/]+', ''
+                if ($shortPath.Length -gt 48) { $shortPath = $shortPath.Substring(0, 45) + '...' }
+                $latencyColor = if ($retryCount -eq 0 -and $stopwatch.ElapsedMilliseconds -lt 1000) { 'Green' } else { 'Yellow' }
+                Write-Host ("  [GRAPH REST] {0,-6} {1,-48} -> 200 OK ({2} ms | Retries: {3}/{4})" -f $Method, $shortPath, $stopwatch.ElapsedMilliseconds, $retryCount, $MaxRetries) -ForegroundColor $latencyColor
+            }
         }
         catch {
             $ex = $_.Exception

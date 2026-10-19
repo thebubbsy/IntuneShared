@@ -37,10 +37,17 @@ function Write-IntuneLog {
         [string]$LogPath = 'C:\ProgramData\Microsoft\IntuneManagementExtension\Logs\WingetIntune.log',
 
         [Parameter()]
+        [switch]$ShowConsole,
+
+        [Parameter()]
+        [switch]$CopyJson,
+
+        [Parameter()]
         [switch]$PassThru
     )
 
-    $utcIso = (Get-Date).ToUniversalTime().ToString('o')
+    $utcNow = (Get-Date).ToUniversalTime()
+    $utcIso = $utcNow.ToString('o')
     $logEntry = [PSCustomObject]@{
         TimestampUtc = $utcIso
         Level        = $Level
@@ -62,6 +69,31 @@ function Write-IntuneLog {
     }
     catch {
         Write-Verbose "Failed writing to log file '$LogPath': $($_.Exception.Message)"
+    }
+
+    if ($ShowConsole) {
+        $timeTag = $utcNow.ToString('HH:mm:ss.fff')
+        $lvlTag = $Level.ToUpperInvariant().PadRight(7)
+        $lvlColor = switch ($Level) {
+            'Error'   { 'Red' }
+            'Warning' { 'Yellow' }
+            'Info'    { 'Cyan' }
+            Default   { 'DarkGray' }
+        }
+        $kvSuffix = ''
+        if ($CustomData -and $CustomData.Count -gt 0) {
+            $pairs = foreach ($k in $CustomData.Keys) { "$k=$($CustomData[$k])" }
+            $kvSuffix = " {$($pairs -join ', ')}"
+        }
+        Write-Host "  [$timeTag UTC] [$lvlTag] [$Component] $Message$kvSuffix" -ForegroundColor $lvlColor
+    }
+
+    if ($CopyJson) {
+        try {
+            Set-Clipboard -Value $jsonLine -ErrorAction Stop
+        } catch {
+            Write-Verbose "Failed copying JSON log line to clipboard: $($_.Exception.Message)"
+        }
     }
 
     switch ($Level) {
