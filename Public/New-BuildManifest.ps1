@@ -14,6 +14,9 @@ function New-BuildManifest {
         [string]$Version = '1.0.0',
 
         [Parameter()]
+        [switch]$CopyReceipt,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -48,8 +51,24 @@ function New-BuildManifest {
     $manifestPath = Join-Path $ModuleRoot 'BuildManifest.json'
     $manifest | ConvertTo-Json -Depth 5 | Out-File -FilePath $manifestPath -Force -Encoding utf8
 
+    $totalKb = [Math]::Round($totalBytes / 1024.0, 1)
+
+    if ($CopyReceipt) {
+        $mdLines = [System.Collections.Generic.List[string]]::new()
+        $mdLines.Add("### Module Build Provenance & SHA-256 Digest (``$moduleName v$Version``)")
+        $mdLines.Add("- **Git Commit**: ``$gitCommit``")
+        $mdLines.Add("- **Timestamp (UTC)**: ``$buildTimeUtc``")
+        $mdLines.Add("- **Files Hashed**: $($files.Count) ($totalKb KB total)")
+        $mdLines.Add("")
+        $mdLines.Add("| File | SHA-256 Digest |")
+        $mdLines.Add("| :--- | :--- |")
+        foreach ($relKey in $fileHashes.Keys) {
+            $mdLines.Add("| ``$relKey`` | ``$($fileHashes[$relKey])`` |")
+        }
+        try { Set-Clipboard -Value ($mdLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
+
     if (-not $Quiet) {
-        $totalKb = [Math]::Round($totalBytes / 1024.0, 1)
         Write-Host ""
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host "  | MODULE BUILD PROVENANCE & SHA-256 INTEGRITY RECEIPT     [VERIFIED]   |" -ForegroundColor Cyan
@@ -72,6 +91,9 @@ function New-BuildManifest {
         }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host ("  | Output File   : {0,-52} |" -f $manifestPath) -ForegroundColor Green
+        if ($CopyReceipt) {
+            Write-Host "  | [CLIPBOARD] Markdown SHA-256 provenance digest copied to clipboard.  |" -ForegroundColor Green
+        }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host ""
     }

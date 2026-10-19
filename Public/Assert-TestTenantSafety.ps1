@@ -38,7 +38,10 @@ function Assert-TestTenantSafety {
         [switch]$AllowBypass,
 
         [Parameter()]
-        [switch]$ShowBanner
+        [switch]$ShowBanner,
+
+        [Parameter()]
+        [switch]$CopyReceipt
     )
 
     if ($AllowBypass -and $env:INTUNE_ALLOW_PRODUCTION_OVERRIDE -eq 'true') {
@@ -74,10 +77,33 @@ function Assert-TestTenantSafety {
         }
     }
 
+    $tName = if ($TenantName) { $TenantName } else { 'Authorized Sandbox' }
+    $tId   = if ($TenantId) { $TenantId } else { $configuredTestTenantId }
+
+    if ($CopyReceipt) {
+        $mdLines = @(
+            "### M365 Tenant Safety Guardrail Receipt (``SANDBOX VERIFIED``)",
+            "| Check | Value |",
+            "| :--- | :--- |",
+            "| **Tenant Name** | $tName |",
+            "| **Authorized Tenant ID** | ``$tId`` |",
+            "| **Allowed Regex Pattern** | ``$AllowedPattern`` |",
+            "| **Guardrail Status** | ``LOCKED / NON-PRODUCTION VERIFIED`` |"
+        )
+        try { Set-Clipboard -Value ($mdLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
+
     if ($ShowBanner) {
-        $tName = if ($TenantName) { $TenantName } else { 'Authorized Sandbox' }
-        $tId   = if ($TenantId) { $TenantId } else { $configuredTestTenantId }
-        Write-Host "  [GUARDRAIL LOCKED] Non-Production Sandbox Verified: $tName ($tId)" -ForegroundColor Green
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host "  | TENANT SAFETY GUARDRAIL VERIFICATION CARD       [SANDBOX VERIFIED]   |" -ForegroundColor Green
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host ("  | Tenant Name     : {0,-50} |" -f $tName) -ForegroundColor White
+        Write-Host ("  | Authorized GUID : {0,-50} |" -f $tId) -ForegroundColor Cyan
+        Write-Host ("  | Allowed Pattern : {0,-50} |" -f $AllowedPattern) -ForegroundColor Gray
+        if ($CopyReceipt) {
+            Write-Host "  | [CLIPBOARD] Markdown guardrail verification receipt copied.          |" -ForegroundColor Green
+        }
+        Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }
 
     Write-Verbose "Tenant safety assertion verified for tenant '$TenantId' ('$TenantName')."
