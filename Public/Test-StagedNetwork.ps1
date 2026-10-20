@@ -21,6 +21,12 @@ function Test-StagedNetwork {
         [switch]$CopyReport,
 
         [Parameter()]
+        [switch]$CopyJson,
+
+        [Parameter()]
+        [switch]$CopyTsv,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -249,10 +255,37 @@ function Test-StagedNetwork {
         } catch { }
     }
 
-    return [PSCustomObject]@{
+    $resultObj = [PSCustomObject]@{
         IsFullyReady = ($allPassed -and $passedCount -eq 7)
         StagesPassed = $passedCount
         TotalStages  = 7
         Details      = $stages
     }
+
+    if ($CopyJson) {
+        try {
+            $jsonStr = $resultObj | ConvertTo-Json -Depth 4
+            Set-Clipboard -Value $jsonStr -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic JSON to clipboard." -ForegroundColor Green
+            }
+        } catch { }
+    }
+
+    if ($CopyTsv) {
+        try {
+            $tsvRows = [System.Collections.Generic.List[string]]::new()
+            $tsvRows.Add("Stage`tName`tStatus`tDescription")
+            foreach ($st in $stages) {
+                $statusStr = if ($st.Success) { 'PASS' } else { 'FAIL' }
+                $tsvRows.Add("$($st.Stage)`t$($st.Name)`t$statusStr`t$($st.Description)")
+            }
+            Set-Clipboard -Value ($tsvRows -join "`r`n") -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic TSV rows to clipboard." -ForegroundColor Green
+            }
+        } catch { }
+    }
+
+    return $resultObj
 }

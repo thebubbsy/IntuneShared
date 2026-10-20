@@ -40,7 +40,13 @@ function Write-IntuneLog {
         [switch]$ShowConsole,
 
         [Parameter()]
+        [switch]$ShowCard,
+
+        [Parameter()]
         [switch]$CopyJson,
+
+        [Parameter()]
+        [switch]$CopyMarkdown,
 
         [Parameter()]
         [switch]$PassThru
@@ -71,21 +77,33 @@ function Write-IntuneLog {
         Write-Verbose "Failed writing to log file '$LogPath': $($_.Exception.Message)"
     }
 
+    $lvlColor = switch ($Level) {
+        'Error'   { 'Red' }
+        'Warning' { 'Yellow' }
+        'Info'    { 'Cyan' }
+        Default   { 'DarkGray' }
+    }
+    $kvSuffix = ''
+    if ($CustomData -and $CustomData.Count -gt 0) {
+        $pairs = foreach ($k in $CustomData.Keys) { "$k=$($CustomData[$k])" }
+        $kvSuffix = " {$($pairs -join ', ')}"
+    }
+
     if ($ShowConsole) {
         $timeTag = $utcNow.ToString('HH:mm:ss.fff')
         $lvlTag = $Level.ToUpperInvariant().PadRight(7)
-        $lvlColor = switch ($Level) {
-            'Error'   { 'Red' }
-            'Warning' { 'Yellow' }
-            'Info'    { 'Cyan' }
-            Default   { 'DarkGray' }
-        }
-        $kvSuffix = ''
-        if ($CustomData -and $CustomData.Count -gt 0) {
-            $pairs = foreach ($k in $CustomData.Keys) { "$k=$($CustomData[$k])" }
-            $kvSuffix = " {$($pairs -join ', ')}"
-        }
         Write-Host "  [$timeTag UTC] [$lvlTag] [$Component] $Message$kvSuffix" -ForegroundColor $lvlColor
+    }
+
+    if ($ShowCard) {
+        $msgShort = if ($Message.Length -gt 46) { $Message.Substring(0, 43) + '...' } else { $Message }
+        Write-Host "  +------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host "  |  [IntuneShared] Structured Telemetry Event                       |" -ForegroundColor Cyan
+        Write-Host "  +------------------------------------------------------------------+" -ForegroundColor DarkCyan
+        Write-Host ("  |  Timestamp (UTC) : {0,-46}|" -f $utcNow.ToString('yyyy-MM-dd HH:mm:ss.fff')) -ForegroundColor Gray
+        Write-Host ("  |  Severity / Comp : {0,-46}|" -f ("$($Level.ToUpperInvariant()) / $Component (PID $PID)")) -ForegroundColor $lvlColor
+        Write-Host ("  |  Message         : {0,-46}|" -f $msgShort) -ForegroundColor White
+        Write-Host "  +------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }
 
     if ($CopyJson) {
@@ -93,6 +111,23 @@ function Write-IntuneLog {
             Set-Clipboard -Value $jsonLine -ErrorAction Stop
         } catch {
             Write-Verbose "Failed copying JSON log line to clipboard: $($_.Exception.Message)"
+        }
+    }
+
+    if ($CopyMarkdown) {
+        try {
+            $mdEvent = @(
+                "### IntuneShared Telemetry Event ($Component)",
+                "| Field | Value |",
+                "| :--- | :--- |",
+                "| **Timestamp (UTC)** | ``$utcIso`` |",
+                "| **Level** | **$Level** |",
+                "| **Component** | ``$Component`` (PID $PID) |",
+                "| **Message** | $Message |"
+            ) -join [Environment]::NewLine
+            Set-Clipboard -Value $mdEvent -ErrorAction Stop
+        } catch {
+            Write-Verbose "Failed copying Markdown log event to clipboard: $($_.Exception.Message)"
         }
     }
 
