@@ -41,7 +41,13 @@ function Invoke-ResilientGraphRest {
         [switch]$ShowReceiptCard,
 
         [Parameter()]
-        [switch]$CopyReceipt
+        [switch]$CopyReceipt,
+
+        [Parameter()]
+        [switch]$CopyJson,
+
+        [Parameter()]
+        [switch]$CopyTsv
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -133,6 +139,29 @@ function Invoke-ResilientGraphRest {
                     ) -join "`r`n"
                     Set-Clipboard -Value $mdRest -ErrorAction Stop
                     Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (Markdown) copied to clipboard." -ForegroundColor Green
+                } catch { }
+            }
+
+            if ($CopyJson) {
+                try {
+                    $jsonRest = [ordered]@{
+                        Method     = $Method
+                        Endpoint   = $effectiveUri
+                        Status     = '200 OK'
+                        LatencyMs  = $stopwatch.ElapsedMilliseconds
+                        Retries    = $retryCount
+                        MaxRetries = $MaxRetries
+                    } | ConvertTo-Json -Depth 4
+                    Set-Clipboard -Value $jsonRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (JSON) copied to clipboard." -ForegroundColor Green
+                } catch { }
+            }
+
+            if ($CopyTsv) {
+                try {
+                    $tsvRest = "Method`tEndpoint`tStatus`tLatencyMs`tRetries`tMaxRetries`r`n$Method`t$effectiveUri`t200 OK`t$($stopwatch.ElapsedMilliseconds)`t$retryCount`t$MaxRetries"
+                    Set-Clipboard -Value $tsvRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (TSV) copied to clipboard." -ForegroundColor Green
                 } catch { }
             }
         }

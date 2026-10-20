@@ -33,7 +33,13 @@ function Connect-GraphToken {
         [switch]$CopyToken,
 
         [Parameter()]
-        [switch]$CopySessionReceipt
+        [switch]$CopySessionReceipt,
+
+        [Parameter()]
+        [switch]$CopySessionJson,
+
+        [Parameter()]
+        [switch]$CopySessionTsv
     )
 
     function Copy-GraphTokenToClipboard {
@@ -48,11 +54,12 @@ function Connect-GraphToken {
 
     function Copy-GraphSessionReceiptToClipboard {
         param([PSCustomObject]$Context, [string]$SourceMode)
-        if ($CopySessionReceipt -and $Context) {
+        if (-not $Context) { return }
+        $ttlMins = [Math]::Max(0, [Math]::Round(($Context.ExpiresOn - [datetime]::UtcNow).TotalMinutes, 1))
+        $expUtc = $Context.ExpiresOn.ToString('yyyy-MM-dd HH:mm:ss') + ' UTC'
+        $scopesJoined = ($Context.Scopes -join ', ')
+        if ($CopySessionReceipt) {
             try {
-                $ttlMins = [Math]::Max(0, [Math]::Round(($Context.ExpiresOn - [datetime]::UtcNow).TotalMinutes, 1))
-                $expUtc = $Context.ExpiresOn.ToString('yyyy-MM-dd HH:mm:ss') + ' UTC'
-                $scopesJoined = ($Context.Scopes -join ', ')
                 $mdSession = @(
                     "### Microsoft Graph OAuth 2.0 Session Telemetry Receipt"
                     ""
@@ -67,6 +74,28 @@ function Connect-GraphToken {
                 ) -join "`r`n"
                 Set-Clipboard -Value $mdSession -ErrorAction Stop
                 Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (Markdown) to clipboard." -ForegroundColor Green
+            } catch { }
+        }
+        if ($CopySessionJson) {
+            try {
+                $jsonSession = [ordered]@{
+                    PermissionType = $Context.PermissionType
+                    SourceMode     = $SourceMode
+                    TenantId       = $Context.TenantId
+                    ClientId       = $Context.ClientId
+                    TokenTtlMins   = $ttlMins
+                    ExpiresUtc     = $expUtc
+                    Scopes         = @($Context.Scopes)
+                } | ConvertTo-Json -Depth 4
+                Set-Clipboard -Value $jsonSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (JSON) to clipboard." -ForegroundColor Green
+            } catch { }
+        }
+        if ($CopySessionTsv) {
+            try {
+                $tsvSession = "PermissionType`tSourceMode`tTenantId`tClientId`tTokenTtlMins`tExpiresUtc`tScopes`r`n$($Context.PermissionType)`t$SourceMode`t$($Context.TenantId)`t$($Context.ClientId)`t$ttlMins`t$expUtc`t$scopesJoined"
+                Set-Clipboard -Value $tsvSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (TSV) to clipboard." -ForegroundColor Green
             } catch { }
         }
     }
