@@ -35,7 +35,13 @@ function Invoke-ResilientGraphRest {
         [int]$BaseDelaySeconds = 2,
 
         [Parameter()]
-        [switch]$ShowTelemetry
+        [switch]$ShowTelemetry,
+
+        [Parameter()]
+        [switch]$ShowReceiptCard,
+
+        [Parameter()]
+        [switch]$CopyReceipt
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -88,11 +94,46 @@ function Invoke-ResilientGraphRest {
             $result = $response
             $stopwatch.Stop()
 
+            $shortPath = $effectiveUri -replace '^https?://[^/]+', ''
+            if ($shortPath.Length -gt 48) { $shortPath = $shortPath.Substring(0, 45) + '...' }
+
             if ($ShowTelemetry) {
-                $shortPath = $effectiveUri -replace '^https?://[^/]+', ''
-                if ($shortPath.Length -gt 48) { $shortPath = $shortPath.Substring(0, 45) + '...' }
                 $latencyColor = if ($retryCount -eq 0 -and $stopwatch.ElapsedMilliseconds -lt 1000) { 'Green' } else { 'Yellow' }
                 Write-Host ("  [GRAPH REST] {0,-6} {1,-48} -> 200 OK ({2} ms | Retries: {3}/{4})" -f $Method, $shortPath, $stopwatch.ElapsedMilliseconds, $retryCount, $MaxRetries) -ForegroundColor $latencyColor
+            }
+
+            if ($ShowReceiptCard) {
+                $endpointCell = ($effectiveUri -replace '^https?://[^/]+', '')
+                if ($endpointCell.Length -gt 51) { $endpointCell = $endpointCell.Substring(0, 48) + '...' }
+                $latencyBadge = if ($retryCount -eq 0) { '[200 OK]' } else { '[RECOVERED]' }
+                Write-Host ""
+                Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+                Write-Host ("  | MICROSOFT GRAPH REST EXECUTION RECEIPT              {0,16} |" -f $latencyBadge) -ForegroundColor Cyan
+                Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+                Write-Host ("  | Method / Status : {0,-50} |" -f "$Method -> 200 OK") -ForegroundColor Green
+                Write-Host ("  | Endpoint Path   : {0,-50} |" -f $endpointCell) -ForegroundColor White
+                Write-Host ("  | Latency         : {0,-50} |" -f "$($stopwatch.ElapsedMilliseconds) ms") -ForegroundColor Gray
+                Write-Host ("  | Retry Telemetry : {0,-50} |" -f "$retryCount / $MaxRetries retries") -ForegroundColor DarkGray
+                Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
+                Write-Host ""
+            }
+
+            if ($CopyReceipt) {
+                try {
+                    $mdRest = @(
+                        "### Microsoft Graph REST Execution Receipt"
+                        ""
+                        "| Field | Value |"
+                        "| :--- | :--- |"
+                        "| **Method** | ``$Method`` |"
+                        "| **Endpoint** | ``$effectiveUri`` |"
+                        "| **Status** | ``200 OK`` |"
+                        "| **Latency** | $($stopwatch.ElapsedMilliseconds) ms |"
+                        "| **Retries** | $retryCount / $MaxRetries |"
+                    ) -join "`r`n"
+                    Set-Clipboard -Value $mdRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (Markdown) copied to clipboard." -ForegroundColor Green
+                } catch { }
             }
         }
         catch {

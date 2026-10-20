@@ -30,7 +30,10 @@ function Connect-GraphToken {
         [switch]$ShowSessionBanner,
 
         [Parameter()]
-        [switch]$CopyToken
+        [switch]$CopyToken,
+
+        [Parameter()]
+        [switch]$CopySessionReceipt
     )
 
     function Copy-GraphTokenToClipboard {
@@ -39,6 +42,31 @@ function Connect-GraphToken {
             try {
                 Set-Clipboard -Value $TokenValue -ErrorAction Stop
                 Write-Host "  [CLIPBOARD] Copied OAuth 2.0 Bearer Access Token to clipboard." -ForegroundColor Green
+            } catch { }
+        }
+    }
+
+    function Copy-GraphSessionReceiptToClipboard {
+        param([PSCustomObject]$Context, [string]$SourceMode)
+        if ($CopySessionReceipt -and $Context) {
+            try {
+                $ttlMins = [Math]::Max(0, [Math]::Round(($Context.ExpiresOn - [datetime]::UtcNow).TotalMinutes, 1))
+                $expUtc = $Context.ExpiresOn.ToString('yyyy-MM-dd HH:mm:ss') + ' UTC'
+                $scopesJoined = ($Context.Scopes -join ', ')
+                $mdSession = @(
+                    "### Microsoft Graph OAuth 2.0 Session Telemetry Receipt"
+                    ""
+                    "| Field | Value |"
+                    "| :--- | :--- |"
+                    "| **Auth Mode** | ``$($Context.PermissionType) ($SourceMode)`` |"
+                    "| **Tenant ID** | ``$($Context.TenantId)`` |"
+                    "| **Client ID** | ``$($Context.ClientId)`` |"
+                    "| **Token TTL** | $ttlMins min |"
+                    "| **Expires (UTC)** | ``$expUtc`` |"
+                    "| **Scopes** | ``$scopesJoined`` |"
+                ) -join "`r`n"
+                Set-Clipboard -Value $mdSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (Markdown) to clipboard." -ForegroundColor Green
             } catch { }
         }
     }
@@ -70,6 +98,7 @@ function Connect-GraphToken {
         if ($cachedEntry.ExpiresOn -gt [datetime]::UtcNow.AddMinutes(2)) {
             $script:GraphAuthContext = $cachedEntry
             if ($ShowSessionBanner) { Write-GraphSessionHud -Context $cachedEntry -SourceMode 'CacheHit' }
+            Copy-GraphSessionReceiptToClipboard -Context $cachedEntry -SourceMode 'CacheHit'
             Copy-GraphTokenToClipboard -TokenValue $cachedEntry.AccessToken
             return $cachedEntry.AccessToken
         }
@@ -99,6 +128,7 @@ function Connect-GraphToken {
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
                 if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'RefreshToken' }
+                Copy-GraphSessionReceiptToClipboard -Context $authObj -SourceMode 'RefreshToken'
                 Copy-GraphTokenToClipboard -TokenValue $authObj.AccessToken
                 return $authObj.AccessToken
             }
@@ -132,6 +162,7 @@ function Connect-GraphToken {
         $script:GraphTokenCache[$cacheKey] = $authObj
         $script:GraphAuthContext = $authObj
         if ($ShowSessionBanner) { Write-GraphSessionHud -Context $authObj -SourceMode 'ClientSecret' }
+        Copy-GraphSessionReceiptToClipboard -Context $authObj -SourceMode 'ClientSecret'
         Copy-GraphTokenToClipboard -TokenValue $res.access_token
         return $res.access_token
     }
@@ -184,6 +215,7 @@ function Connect-GraphToken {
                 $script:GraphTokenCache[$cacheKey] = $authObj
                 $script:GraphAuthContext = $authObj
                 Write-GraphSessionHud -Context $authObj -SourceMode 'DeviceCode'
+                Copy-GraphSessionReceiptToClipboard -Context $authObj -SourceMode 'DeviceCode'
                 Copy-GraphTokenToClipboard -TokenValue $tokenRes.access_token
                 return $tokenRes.access_token
             }
