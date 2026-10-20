@@ -17,6 +17,12 @@ function New-BuildManifest {
         [switch]$CopyReceipt,
 
         [Parameter()]
+        [switch]$CopyJson,
+
+        [Parameter()]
+        [switch]$CopyTsv,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -67,6 +73,17 @@ function New-BuildManifest {
         }
         try { Set-Clipboard -Value ($mdLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
     }
+    if ($CopyJson) {
+        try { Set-Clipboard -Value ($manifest | ConvertTo-Json -Depth 5) -ErrorAction SilentlyContinue } catch { }
+    }
+    if ($CopyTsv) {
+        $tsvLines = [System.Collections.Generic.List[string]]::new()
+        $tsvLines.Add("ModuleName`tModuleVersion`tGitCommit`tFile`tSha256Digest")
+        foreach ($relKey in $fileHashes.Keys) {
+            $tsvLines.Add("$moduleName`t$Version`t$gitCommit`t$relKey`t$($fileHashes[$relKey])")
+        }
+        try { Set-Clipboard -Value ($tsvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
 
     if (-not $Quiet) {
         Write-Host ""
@@ -93,6 +110,12 @@ function New-BuildManifest {
         Write-Host ("  | Output File   : {0,-52} |" -f $manifestPath) -ForegroundColor Green
         if ($CopyReceipt) {
             Write-Host "  | [CLIPBOARD] Markdown SHA-256 provenance digest copied to clipboard.  |" -ForegroundColor Green
+        }
+        if ($CopyJson) {
+            Write-Host "  | [CLIPBOARD] JSON BuildManifest provenance copied to clipboard.       |" -ForegroundColor Green
+        }
+        if ($CopyTsv) {
+            Write-Host "  | [CLIPBOARD] TSV SHA-256 file digest table copied to clipboard.       |" -ForegroundColor Green
         }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host ""

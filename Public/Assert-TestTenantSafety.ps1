@@ -41,7 +41,13 @@ function Assert-TestTenantSafety {
         [switch]$ShowBanner,
 
         [Parameter()]
-        [switch]$CopyReceipt
+        [switch]$CopyReceipt,
+
+        [Parameter()]
+        [switch]$CopyJson,
+
+        [Parameter()]
+        [switch]$CopyTsv
     )
 
     if ($AllowBypass -and $env:INTUNE_ALLOW_PRODUCTION_OVERRIDE -eq 'true') {
@@ -79,6 +85,7 @@ function Assert-TestTenantSafety {
 
     $tName = if ($TenantName) { $TenantName } else { 'Authorized Sandbox' }
     $tId   = if ($TenantId) { $TenantId } else { $configuredTestTenantId }
+    $verifiedUtc = (Get-Date).ToUniversalTime().ToString('o')
 
     if ($CopyReceipt) {
         $mdLines = @(
@@ -92,6 +99,23 @@ function Assert-TestTenantSafety {
         )
         try { Set-Clipboard -Value ($mdLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
     }
+    if ($CopyJson) {
+        $jsonObj = [PSCustomObject]@{
+            TenantName         = $tName
+            AuthorizedTenantId = $tId
+            AllowedPattern     = $AllowedPattern
+            GuardrailStatus    = 'LOCKED / NON-PRODUCTION VERIFIED'
+            VerifiedAtUtc      = $verifiedUtc
+        } | ConvertTo-Json -Depth 4
+        try { Set-Clipboard -Value $jsonObj -ErrorAction SilentlyContinue } catch { }
+    }
+    if ($CopyTsv) {
+        $tsvLines = @(
+            "TenantName`tAuthorizedTenantId`tAllowedPattern`tGuardrailStatus`tVerifiedAtUtc",
+            "$tName`t$tId`t$AllowedPattern`tLOCKED / NON-PRODUCTION VERIFIED`t$verifiedUtc"
+        )
+        try { Set-Clipboard -Value ($tsvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
 
     if ($ShowBanner) {
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
@@ -102,6 +126,12 @@ function Assert-TestTenantSafety {
         Write-Host ("  | Allowed Pattern : {0,-50} |" -f $AllowedPattern) -ForegroundColor Gray
         if ($CopyReceipt) {
             Write-Host "  | [CLIPBOARD] Markdown guardrail verification receipt copied.          |" -ForegroundColor Green
+        }
+        if ($CopyJson) {
+            Write-Host "  | [CLIPBOARD] JSON guardrail verification receipt copied.              |" -ForegroundColor Green
+        }
+        if ($CopyTsv) {
+            Write-Host "  | [CLIPBOARD] TSV guardrail verification receipt copied.               |" -ForegroundColor Green
         }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }
