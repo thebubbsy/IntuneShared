@@ -49,6 +49,12 @@ function Write-IntuneLog {
         [switch]$CopyMarkdown,
 
         [Parameter()]
+        [switch]$CopyTsv,
+
+        [Parameter()]
+        [switch]$CopyCsv,
+
+        [Parameter()]
         [switch]$PassThru
     )
 
@@ -128,6 +134,28 @@ function Write-IntuneLog {
             Set-Clipboard -Value $mdEvent -ErrorAction Stop
         } catch {
             Write-Verbose "Failed copying Markdown log event to clipboard: $($_.Exception.Message)"
+        }
+    }
+
+    if ($CopyTsv) {
+        try {
+            $cleanMsg = ($Message -replace "[\t\r\n]+", " ").Trim()
+            $tsvHeader = "TimestampUtc`tLevel`tComponent`tProcessId`tMessage"
+            $tsvRow = "$utcIso`t$Level`t$Component`t$PID`t$cleanMsg"
+            Set-Clipboard -Value ("$tsvHeader`r`n$tsvRow") -ErrorAction Stop
+        } catch {
+            Write-Verbose "Failed copying TSV log event to clipboard: $($_.Exception.Message)"
+        }
+    }
+
+    if ($CopyCsv) {
+        try {
+            $escCsv = { param($v) '"' + (([string]$v -replace "[\r\n]+", " ").Trim() -replace '"', '""') + '"' }
+            $csvHeader = '"TimestampUtc","Level","Component","ProcessId","Message"'
+            $csvRow = (@((& $escCsv $utcIso), (& $escCsv $Level), (& $escCsv $Component), (& $escCsv $PID), (& $escCsv $Message)) -join ',')
+            Set-Clipboard -Value ("$csvHeader`r`n$csvRow") -ErrorAction Stop
+        } catch {
+            Write-Verbose "Failed copying CSV log event to clipboard: $($_.Exception.Message)"
         }
     }
 
