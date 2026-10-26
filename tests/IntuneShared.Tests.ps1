@@ -434,6 +434,18 @@ Describe 'IntuneShared Kernel Test Suite' {
             $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
         }
 
+        It 'Supports -CopySessionHtml and -CopySessionCsv on Connect-GraphToken' {
+            $cmd = Get-Command Connect-GraphToken
+            $cmd.Parameters.ContainsKey('CopySessionHtml') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopySessionCsv') | Should -BeTrue
+        }
+
+        It 'Supports -CopyHtml and -CopyCsv on Invoke-ResilientGraphRest' {
+            $cmd = Get-Command Invoke-ResilientGraphRest
+            $cmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+        }
+
         It 'Marks Stage 7 Autopilot reachability as Success on HTTP 404 response' {
             $probe = Test-StagedNetwork -TimeoutSeconds 2
             $stage7 = $probe.Details | Where-Object { $_.Stage -eq 7 }

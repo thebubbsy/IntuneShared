@@ -47,7 +47,13 @@ function Invoke-ResilientGraphRest {
         [switch]$CopyJson,
 
         [Parameter()]
-        [switch]$CopyTsv
+        [switch]$CopyTsv,
+
+        [Parameter()]
+        [switch]$CopyHtml,
+
+        [Parameter()]
+        [switch]$CopyCsv
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -113,6 +119,7 @@ function Invoke-ResilientGraphRest {
                 if ($endpointCell.Length -gt 51) { $endpointCell = $endpointCell.Substring(0, 48) + '...' }
                 $latencyBadge = if ($retryCount -eq 0) { '[200 OK]' } else { '[RECOVERED]' }
                 Write-Host ""
+                Write-Host ("  [HTTP:200_OK] [METHOD:{0}] [LATENCY:{1}MS] [RETRIES:{2}/{3}]" -f $Method, $stopwatch.ElapsedMilliseconds, $retryCount, $MaxRetries) -ForegroundColor Green
                 Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
                 Write-Host ("  | MICROSOFT GRAPH REST EXECUTION RECEIPT              {0,16} |" -f $latencyBadge) -ForegroundColor Cyan
                 Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
@@ -162,6 +169,37 @@ function Invoke-ResilientGraphRest {
                     $tsvRest = "Method`tEndpoint`tStatus`tLatencyMs`tRetries`tMaxRetries`r`n$Method`t$effectiveUri`t200 OK`t$($stopwatch.ElapsedMilliseconds)`t$retryCount`t$MaxRetries"
                     Set-Clipboard -Value $tsvRest -ErrorAction Stop
                     Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (TSV) copied to clipboard." -ForegroundColor Green
+                } catch { }
+            }
+            if ($CopyHtml) {
+                try {
+                    $htmlRest = @(
+                        "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+                        "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+                        "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">Microsoft Graph REST Execution Receipt</h3>",
+                        "    <span style=`"background:#166534;color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">200 OK ($Method)</span>",
+                        "  </div>",
+                        "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;`">",
+                        "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Method</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;font-weight:600;`">$Method</td></tr>",
+                        "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Endpoint</td><td style=`"padding:6px 0;text-align:right;color:#38bdf8;font-family:monospace;font-size:11px;`">$effectiveUri</td></tr>",
+                        "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Status</td><td style=`"padding:6px 0;text-align:right;color:#4ade80;`">200 OK</td></tr>",
+                        "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Latency</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;`">$($stopwatch.ElapsedMilliseconds) ms</td></tr>",
+                        "    <tr><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Retries</td><td style=`"padding:6px 0;text-align:right;color:#94a3b8;`">$retryCount / $MaxRetries</td></tr>",
+                        "  </table>",
+                        "</div>"
+                    ) -join [Environment]::NewLine
+                    Set-Clipboard -Value $htmlRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (HTML) copied to clipboard." -ForegroundColor Green
+                } catch { }
+            }
+            if ($CopyCsv) {
+                try {
+                    $csvRest = @(
+                        "Method,Endpoint,Status,LatencyMs,Retries,MaxRetries",
+                        "`"$Method`",`"$effectiveUri`",`"200 OK`",$($stopwatch.ElapsedMilliseconds),$retryCount,$MaxRetries"
+                    ) -join "`r`n"
+                    Set-Clipboard -Value $csvRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (CSV) copied to clipboard." -ForegroundColor Green
                 } catch { }
             }
         }

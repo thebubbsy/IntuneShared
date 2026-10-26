@@ -39,7 +39,13 @@ function Connect-GraphToken {
         [switch]$CopySessionJson,
 
         [Parameter()]
-        [switch]$CopySessionTsv
+        [switch]$CopySessionTsv,
+
+        [Parameter()]
+        [switch]$CopySessionHtml,
+
+        [Parameter()]
+        [switch]$CopySessionCsv
     )
 
     function Copy-GraphTokenToClipboard {
@@ -98,6 +104,36 @@ function Connect-GraphToken {
                 Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (TSV) to clipboard." -ForegroundColor Green
             } catch { }
         }
+        if ($CopySessionHtml) {
+            try {
+                $htmlSession = @(
+                    "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+                    "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+                    "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">Microsoft Graph Session Telemetry</h3>",
+                    "    <span style=`"background:#0369a1;color:#7dd3fc;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">$($Context.PermissionType.ToUpper()) ($SourceMode)</span>",
+                    "  </div>",
+                    "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;`">",
+                    "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Tenant ID</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;font-family:monospace;font-size:11px;`">$($Context.TenantId)</td></tr>",
+                    "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Client ID</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;font-family:monospace;font-size:11px;`">$($Context.ClientId)</td></tr>",
+                    "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Token TTL</td><td style=`"padding:6px 0;text-align:right;color:#4ade80;font-weight:600;`">$ttlMins min ($expUtc)</td></tr>",
+                    "    <tr><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Granted Scopes</td><td style=`"padding:6px 0;text-align:right;color:#38bdf8;font-family:monospace;font-size:11px;`">$scopesJoined</td></tr>",
+                    "  </table>",
+                    "</div>"
+                ) -join [Environment]::NewLine
+                Set-Clipboard -Value $htmlSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (HTML) to clipboard." -ForegroundColor Green
+            } catch { }
+        }
+        if ($CopySessionCsv) {
+            try {
+                $csvSession = @(
+                    "PermissionType,SourceMode,TenantId,ClientId,TokenTtlMins,ExpiresUtc,Scopes",
+                    "`"$($Context.PermissionType)`",`"$SourceMode`",`"$($Context.TenantId)`",`"$($Context.ClientId)`",$ttlMins,`"$expUtc`",`"$scopesJoined`""
+                ) -join "`r`n"
+                Set-Clipboard -Value $csvSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (CSV) to clipboard." -ForegroundColor Green
+            } catch { }
+        }
     }
 
     function Write-GraphSessionHud {
@@ -105,6 +141,8 @@ function Connect-GraphToken {
         $ttlMins = [Math]::Max(0, [Math]::Round(($Context.ExpiresOn - [datetime]::UtcNow).TotalMinutes, 1))
         $expUtc = $Context.ExpiresOn.ToString('HH:mm:ss') + ' UTC'
         $scopeCount = @($Context.Scopes).Count
+        Write-Host ""
+        Write-Host ("  [OAUTH:2.0] [AUTH:{0}] [SOURCE:{1}] [SCOPES:{2}] [CACHE:READY]" -f $Context.PermissionType.ToUpper(), $SourceMode.ToUpper(), $scopeCount) -ForegroundColor Green
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host "  | MICROSOFT GRAPH OAUTH 2.0 SESSION TELEMETRY                          |" -ForegroundColor Cyan
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
