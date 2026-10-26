@@ -55,6 +55,9 @@ function Write-IntuneLog {
         [switch]$CopyCsv,
 
         [Parameter()]
+        [switch]$CopyHtml,
+
+        [Parameter()]
         [switch]$PassThru
     )
 
@@ -102,6 +105,8 @@ function Write-IntuneLog {
     }
 
     if ($ShowCard) {
+        Write-Host ""
+        Write-Host ("  [LOG:{0}] [COMP:{1}] [PID:{2}] [TIME:{3}] [PAYLOAD:{4}-KVS]" -f $Level.ToUpperInvariant(), $Component, $PID, $utcNow.ToString('HH:mm:ss'), $(if ($CustomData) { $CustomData.Count } else { 0 })) -ForegroundColor $lvlColor
         $msgShort = if ($Message.Length -gt 46) { $Message.Substring(0, 43) + '...' } else { $Message }
         Write-Host "  +------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host "  |  [IntuneShared] Structured Telemetry Event                       |" -ForegroundColor Cyan
@@ -156,6 +161,35 @@ function Write-IntuneLog {
             Set-Clipboard -Value ("$csvHeader`r`n$csvRow") -ErrorAction Stop
         } catch {
             Write-Verbose "Failed copying CSV log event to clipboard: $($_.Exception.Message)"
+        }
+    }
+
+    if ($CopyHtml) {
+        try {
+            $kvHtmlRows = [System.Collections.Generic.List[string]]::new()
+            if ($CustomData -and $CustomData.Count -gt 0) {
+                foreach ($k in $CustomData.Keys) {
+                    $kvHtmlRows.Add("<tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-size:12px;`">$k</td><td style=`"padding:4px 0;text-align:right;color:#f8fafc;font-family:monospace;font-size:11px;`">$($CustomData[$k])</td></tr>")
+                }
+            }
+            $htmlLog = @(
+                "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+                "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+                "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">IntuneShared Telemetry Event ($Component)</h3>",
+                "    <span style=`"background:#1e293b;color:#38bdf8;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">$($Level.ToUpperInvariant())</span>",
+                "  </div>",
+                "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;`">",
+                "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Timestamp (UTC)</td><td style=`"padding:4px 0;text-align:right;color:#f8fafc;font-size:12px;`">$utcIso</td></tr>",
+                "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Severity</td><td style=`"padding:4px 0;text-align:right;color:#38bdf8;font-weight:600;`">$Level</td></tr>",
+                "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Component / PID</td><td style=`"padding:4px 0;text-align:right;color:#f8fafc;`">$Component (PID $PID)</td></tr>",
+                "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Message</td><td style=`"padding:4px 0;text-align:right;color:#4ade80;`">$Message</td></tr>",
+                $(if ($kvHtmlRows.Count -gt 0) { $kvHtmlRows -join [Environment]::NewLine } else { "" }),
+                "  </table>",
+                "</div>"
+            ) -join [Environment]::NewLine
+            Set-Clipboard -Value $htmlLog -ErrorAction Stop
+        } catch {
+            Write-Verbose "Failed copying HTML log event to clipboard: $($_.Exception.Message)"
         }
     }
 

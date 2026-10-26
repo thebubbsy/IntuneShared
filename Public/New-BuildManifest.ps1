@@ -23,6 +23,12 @@ function New-BuildManifest {
         [switch]$CopyTsv,
 
         [Parameter()]
+        [switch]$CopyCsv,
+
+        [Parameter()]
+        [switch]$CopyHtml,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -85,8 +91,45 @@ function New-BuildManifest {
         try { Set-Clipboard -Value ($tsvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
     }
 
+    if ($CopyHtml) {
+        $previewRows = [System.Collections.Generic.List[string]]::new()
+        foreach ($relKey in ($fileHashes.Keys | Select-Object -First 10)) {
+            $h = $fileHashes[$relKey]
+            $short = if ($h.Length -ge 16) { "$($h.Substring(0, 8))...$($h.Substring($h.Length - 6))" } else { $h }
+            $previewRows.Add("<tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#f8fafc;font-family:monospace;font-size:11px;`">$relKey</td><td style=`"padding:4px 0;text-align:right;color:#38bdf8;font-family:monospace;font-size:11px;`">$short</td></tr>")
+        }
+        $htmlManifest = @(
+            "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:640px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+            "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+            "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">Module Build Provenance ($moduleName v$Version)</h3>",
+            "    <span style=`"background:#166534;color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">VERIFIED</span>",
+            "  </div>",
+            "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px;`">",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Git Commit</td><td style=`"padding:4px 0;text-align:right;color:#4ade80;font-family:monospace;`">$gitCommit</td></tr>",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Timestamp UTC</td><td style=`"padding:4px 0;text-align:right;color:#f8fafc;font-size:12px;`">$buildTimeUtc</td></tr>",
+            "    <tr><td style=`"padding:4px 0;color:#94a3b8;font-weight:500;`">Files Hashed</td><td style=`"padding:4px 0;text-align:right;color:#f8fafc;`">$($files.Count) files ($totalKb KB total)</td></tr>",
+            "  </table>",
+            "  <div style=`"font-size:12px;font-weight:600;color:#94a3b8;margin-bottom:6px;`">Component SHA-256 Hashes</div>",
+            "  <table style=`"width:100%;border-collapse:collapse;`">",
+            ($previewRows -join [Environment]::NewLine),
+            "  </table>",
+            "</div>"
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value $htmlManifest -ErrorAction SilentlyContinue } catch { }
+    }
+
+    if ($CopyCsv) {
+        $csvLines = [System.Collections.Generic.List[string]]::new()
+        $csvLines.Add("ModuleName,ModuleVersion,GitCommit,File,Sha256Digest")
+        foreach ($relKey in $fileHashes.Keys) {
+            $csvLines.Add("`"$moduleName`",`"$Version`",`"$gitCommit`",`"$relKey`",`"$($fileHashes[$relKey])`"")
+        }
+        try { Set-Clipboard -Value ($csvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
+
     if (-not $Quiet) {
         Write-Host ""
+        Write-Host ("  [MANIFEST:BUILD] [MODULE:{0}] [VERSION:v{1}] [COMMIT:{2}] [FILES:{3}] [INTEGRITY:SHA256]" -f $moduleName, $Version, $gitCommit, $files.Count) -ForegroundColor Cyan
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host "  | MODULE BUILD PROVENANCE & SHA-256 INTEGRITY RECEIPT     [VERIFIED]   |" -ForegroundColor Cyan
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan

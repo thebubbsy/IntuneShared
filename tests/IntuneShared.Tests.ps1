@@ -452,6 +452,20 @@ Describe 'IntuneShared Kernel Test Suite' {
             $stage7 | Should -Not -BeNullOrEmpty
             $stage7.Name | Should -Be 'Autopilot Endpoint'
         }
+
+        It 'Supports -CopyHtml and -CopyCsv on New-BuildManifest, Write-IntuneLog, and Out-AsciiQrCode' {
+            $bmCmd = Get-Command New-BuildManifest
+            $bmCmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $bmCmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+
+            $logCmd = Get-Command Write-IntuneLog
+            $logCmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $logCmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+
+            $qrCmd = Get-Command Out-AsciiQrCode
+            $qrCmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $qrCmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+        }
     }
 
     # =========================================================================
