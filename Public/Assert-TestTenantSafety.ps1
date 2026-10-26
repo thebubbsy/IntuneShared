@@ -47,7 +47,13 @@ function Assert-TestTenantSafety {
         [switch]$CopyJson,
 
         [Parameter()]
-        [switch]$CopyTsv
+        [switch]$CopyTsv,
+
+        [Parameter()]
+        [switch]$CopyHtml,
+
+        [Parameter()]
+        [switch]$CopyCsv
     )
 
     if ($AllowBypass -and $env:INTUNE_ALLOW_PRODUCTION_OVERRIDE -eq 'true') {
@@ -109,6 +115,30 @@ function Assert-TestTenantSafety {
         } | ConvertTo-Json -Depth 4
         try { Set-Clipboard -Value $jsonObj -ErrorAction SilentlyContinue } catch { }
     }
+    if ($CopyHtml) {
+        $htmlCard = @(
+            "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+            "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+            "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">M365 Tenant Safety Guardrail Receipt</h3>",
+            "    <span style=`"background:#166534;color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">SANDBOX VERIFIED</span>",
+            "  </div>",
+            "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;`">",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Tenant Name</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;font-weight:600;`">$tName</td></tr>",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Authorized GUID</td><td style=`"padding:6px 0;text-align:right;color:#38bdf8;font-family:monospace;`">$tId</td></tr>",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Allowed Pattern</td><td style=`"padding:6px 0;text-align:right;color:#cbd5e1;`">$AllowedPattern</td></tr>",
+            "    <tr><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Verified At</td><td style=`"padding:6px 0;text-align:right;color:#94a3b8;font-size:12px;`">$verifiedUtc</td></tr>",
+            "  </table>",
+            "</div>"
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value $htmlCard -ErrorAction SilentlyContinue } catch { }
+    }
+    if ($CopyCsv) {
+        $csvLines = @(
+            "TenantName,AuthorizedTenantId,AllowedPattern,GuardrailStatus,VerifiedAtUtc",
+            "`"$tName`",`"$tId`",`"$AllowedPattern`",`"LOCKED / NON-PRODUCTION VERIFIED`",`"$verifiedUtc`""
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value ($csvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
     if ($CopyTsv) {
         $tsvLines = @(
             "TenantName`tAuthorizedTenantId`tAllowedPattern`tGuardrailStatus`tVerifiedAtUtc",
@@ -130,8 +160,38 @@ function Assert-TestTenantSafety {
         if ($CopyJson) {
             Write-Host "  | [CLIPBOARD] JSON guardrail verification receipt copied.              |" -ForegroundColor Green
         }
-        if ($CopyTsv) {
+        if ($CopyHtml) {
+        $htmlCard = @(
+            "<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:600px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">",
+            "  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">",
+            "    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">M365 Tenant Safety Guardrail Receipt</h3>",
+            "    <span style=`"background:#166534;color:#4ade80;padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">SANDBOX VERIFIED</span>",
+            "  </div>",
+            "  <table style=`"width:100%;border-collapse:collapse;font-size:13px;`">",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Tenant Name</td><td style=`"padding:6px 0;text-align:right;color:#f8fafc;font-weight:600;`">$tName</td></tr>",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Authorized GUID</td><td style=`"padding:6px 0;text-align:right;color:#38bdf8;font-family:monospace;`">$tId</td></tr>",
+            "    <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Allowed Pattern</td><td style=`"padding:6px 0;text-align:right;color:#cbd5e1;`">$AllowedPattern</td></tr>",
+            "    <tr><td style=`"padding:6px 0;color:#94a3b8;font-weight:500;`">Verified At</td><td style=`"padding:6px 0;text-align:right;color:#94a3b8;font-size:12px;`">$verifiedUtc</td></tr>",
+            "  </table>",
+            "</div>"
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value $htmlCard -ErrorAction SilentlyContinue } catch { }
+    }
+    if ($CopyCsv) {
+        $csvLines = @(
+            "TenantName,AuthorizedTenantId,AllowedPattern,GuardrailStatus,VerifiedAtUtc",
+            "`"$tName`",`"$tId`",`"$AllowedPattern`",`"LOCKED / NON-PRODUCTION VERIFIED`",`"$verifiedUtc`""
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value ($csvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
+    }
+    if ($CopyTsv) {
             Write-Host "  | [CLIPBOARD] TSV guardrail verification receipt copied.               |" -ForegroundColor Green
+        }
+        if ($CopyHtml) {
+            Write-Host "  | [CLIPBOARD] HTML guardrail verification card copied.                 |" -ForegroundColor Green
+        }
+        if ($CopyCsv) {
+            Write-Host "  | [CLIPBOARD] CSV guardrail verification receipt copied.               |" -ForegroundColor Green
         }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }

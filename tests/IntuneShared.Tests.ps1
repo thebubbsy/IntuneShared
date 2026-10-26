@@ -419,6 +419,21 @@ Describe 'IntuneShared Kernel Test Suite' {
             $probe.Details[6].Name | Should -Be 'Autopilot Endpoint'
         }
 
+        It 'Supports -CopyHtml and -CopyCsv clipboard parameters on Test-StagedNetwork' {
+            $cmd = Get-Command Test-StagedNetwork
+            $cmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+
+            $probe = Test-StagedNetwork -TimeoutSeconds 1 -CopyHtml -CopyCsv -Quiet
+            $probe | Should -Not -BeNullOrEmpty
+        }
+
+        It 'Supports -CopyHtml and -CopyCsv clipboard parameters on Assert-TestTenantSafety' {
+            $cmd = Get-Command Assert-TestTenantSafety
+            $cmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+        }
+
         It 'Marks Stage 7 Autopilot reachability as Success on HTTP 404 response' {
             $probe = Test-StagedNetwork -TimeoutSeconds 2
             $stage7 = $probe.Details | Where-Object { $_.Stage -eq 7 }

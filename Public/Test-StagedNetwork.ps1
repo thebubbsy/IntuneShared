@@ -27,6 +27,12 @@ function Test-StagedNetwork {
         [switch]$CopyTsv,
 
         [Parameter()]
+        [switch]$CopyHtml,
+
+        [Parameter()]
+        [switch]$CopyCsv,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -234,6 +240,22 @@ function Test-StagedNetwork {
         Write-Host ("  | Stages Passed : {0,-22} TCP 443 RTT : {1,-16} |" -f "$passedCount / 7 [$bar]", $(if ($tcpOk) { "$latencyMs ms" } else { 'FAIL' })) -ForegroundColor White
         Write-Host ("  | Clock Skew    : {0,-22} Captive     : {1,-16} |" -f $skewSummary, $(if (-not $captivePortal) { 'CLEAR' } else { 'DETECTED' })) -ForegroundColor Gray
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor $borderColor
+        $pills = [System.Collections.Generic.List[string]]::new()
+        foreach ($st in $stages) {
+            $shortName = switch ($st.Stage) {
+                1 { 'IF' }
+                2 { 'GW' }
+                3 { 'DNS' }
+                4 { if ($tcpOk) { "${latencyMs}ms" } else { 'TCP' } }
+                5 { if ($tlsAndTimeOk) { "${timeSkewSec}s" } else { 'TLS' } }
+                6 { if (-not $captivePortal) { 'CLEAR' } else { 'PORTAL' } }
+                7 { 'AUTOPILOT' }
+                Default { "S$($st.Stage)" }
+            }
+            $pTag = if ($st.Success) { "[$($shortName):OK]" } else { "[$($shortName):FAIL]" }
+            $pills.Add($pTag)
+        }
+        Write-Host ("  Ladder Pills    : {0}" -f ($pills -join ' ')) -ForegroundColor Cyan
     }
 
     if ($CopyReport) {
@@ -283,6 +305,47 @@ function Test-StagedNetwork {
             Set-Clipboard -Value ($tsvRows -join "`r`n") -ErrorAction Stop
             if (-not $Quiet) {
                 Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic TSV rows to clipboard." -ForegroundColor Green
+            }
+        } catch { }
+    }
+
+    if ($CopyHtml) {
+        try {
+            $htmlRows = [System.Collections.Generic.List[string]]::new()
+            $htmlRows.Add("<div style=`"font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;max-width:680px;background:#0f172a;color:#f8fafc;border:1px solid #334155;border-radius:8px;padding:16px;box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);`">")
+            $htmlRows.Add("  <div style=`"display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #334155;padding-bottom:10px;margin-bottom:12px;`">")
+            $htmlRows.Add("    <h3 style=`"margin:0;color:#38bdf8;font-size:16px;font-weight:600;`">IntuneShared 7-Stage Cloud Network & Time Sync</h3>")
+            $htmlRows.Add("    <span style=`"background:$(if ($resultObj.IsFullyReady) { '#166534' } else { '#991b1b' });color:$(if ($resultObj.IsFullyReady) { '#4ade80' } else { '#f87171' });padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;`">$verdictText ($passedCount/7)</span>")
+            $htmlRows.Add("  </div>")
+            $htmlRows.Add("  <table style=`"width:100%;border-collapse:collapse;font-size:12px;`">")
+            $htmlRows.Add("    <thead><tr style=`"border-bottom:1px solid #334155;color:#94a3b8;text-align:left;`"><th style=`"padding:6px;width:32px;`">#</th><th style=`"padding:6px;width:160px;`">Stage Name</th><th style=`"padding:6px;width:70px;`">Status</th><th style=`"padding:6px;`">Details</th></tr></thead>")
+            $htmlRows.Add("    <tbody>")
+            foreach ($st in $stages) {
+                $statusColor = if ($st.Success) { '#4ade80' } else { '#f87171' }
+                $statusBadge = if ($st.Success) { 'PASS' } else { 'FAIL' }
+                $htmlRows.Add("      <tr style=`"border-bottom:1px solid #1e293b;`"><td style=`"padding:6px;color:#64748b;`">$($st.Stage)</td><td style=`"padding:6px;font-weight:500;`">$($st.Name)</td><td style=`"padding:6px;color:$statusColor;font-weight:600;`">$statusBadge</td><td style=`"padding:6px;color:#94a3b8;`">$($st.Description)</td></tr>")
+            }
+            $htmlRows.Add("    </tbody>")
+            $htmlRows.Add("  </table>")
+            $htmlRows.Add("</div>")
+            Set-Clipboard -Value ($htmlRows -join "`r`n") -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic HTML Report card to clipboard." -ForegroundColor Green
+            }
+        } catch { }
+    }
+
+    if ($CopyCsv) {
+        try {
+            $csvRows = [System.Collections.Generic.List[string]]::new()
+            $csvRows.Add("Stage,Name,Status,Description")
+            foreach ($st in $stages) {
+                $statusStr = if ($st.Success) { 'PASS' } else { 'FAIL' }
+                $csvRows.Add("$($st.Stage),`"$($st.Name)`",$statusStr,`"$($st.Description)`"")
+            }
+            Set-Clipboard -Value ($csvRows -join "`r`n") -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic CSV rows to clipboard." -ForegroundColor Green
             }
         } catch { }
     }
