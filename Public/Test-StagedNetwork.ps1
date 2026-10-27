@@ -33,6 +33,9 @@ function Test-StagedNetwork {
         [switch]$CopyCsv,
 
         [Parameter()]
+        [switch]$CopyXml,
+
+        [Parameter()]
         [switch]$Quiet
     )
 
@@ -256,6 +259,7 @@ function Test-StagedNetwork {
             $pills.Add($pTag)
         }
         Write-Host ("  Ladder Pills    : {0}" -f ($pills -join ' ')) -ForegroundColor Cyan
+        Write-Host "  Format Feeds    : [MD: Ready] [HTML: Ready] [CSV: Ready] [JSON: Ready] [TSV: Ready] [XML: Ready]" -ForegroundColor DarkGray
     }
 
     if ($CopyReport) {
@@ -346,6 +350,26 @@ function Test-StagedNetwork {
             Set-Clipboard -Value ($csvRows -join "`r`n") -ErrorAction Stop
             if (-not $Quiet) {
                 Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic CSV rows to clipboard." -ForegroundColor Green
+            }
+        } catch { }
+    }
+
+    if ($CopyXml) {
+        try {
+            $xmlRows = [System.Collections.Generic.List[string]]::new()
+            $xmlRows.Add('<?xml version="1.0" encoding="utf-8"?>')
+            $xmlRows.Add("<CloudNetworkPosture host=`"$([Security.SecurityElement]::Escape([string]$env:COMPUTERNAME))`" isFullyReady=`"$($resultObj.IsFullyReady.ToString().ToLowerInvariant())`" stagesPassed=`"$passedCount`" totalStages=`"7`" tcpLatencyMs=`"$latencyMs`" clockSkewSec=`"$timeSkewSec`" captivePortal=`"$($captivePortal.ToString().ToLowerInvariant())`" timestamp=`"$([DateTime]::UtcNow.ToString('o'))`">")
+            $xmlRows.Add("  <Stages>")
+            foreach ($st in $stages) {
+                $xmlRows.Add("    <Stage number=`"$($st.Stage)`" name=`"$([Security.SecurityElement]::Escape([string]$st.Name))`" success=`"$($st.Success.ToString().ToLowerInvariant())`">")
+                $xmlRows.Add("      <Description>$([Security.SecurityElement]::Escape([string]$st.Description))</Description>")
+                $xmlRows.Add("    </Stage>")
+            }
+            $xmlRows.Add("  </Stages>")
+            $xmlRows.Add("</CloudNetworkPosture>")
+            Set-Clipboard -Value ($xmlRows -join [Environment]::NewLine) -ErrorAction Stop
+            if (-not $Quiet) {
+                Write-Host "  [CLIPBOARD] Copied 7-Stage Network Diagnostic XML document to clipboard." -ForegroundColor Green
             }
         } catch { }
     }

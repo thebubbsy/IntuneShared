@@ -53,7 +53,10 @@ function Assert-TestTenantSafety {
         [switch]$CopyHtml,
 
         [Parameter()]
-        [switch]$CopyCsv
+        [switch]$CopyCsv,
+
+        [Parameter()]
+        [switch]$CopyXml
     )
 
     if ($AllowBypass -and $env:INTUNE_ALLOW_PRODUCTION_OVERRIDE -eq 'true') {
@@ -147,6 +150,20 @@ function Assert-TestTenantSafety {
         try { Set-Clipboard -Value ($tsvLines -join [Environment]::NewLine) -ErrorAction SilentlyContinue } catch { }
     }
 
+    if ($CopyXml) {
+        $xmlReceipt = @(
+            '<?xml version="1.0" encoding="utf-8"?>',
+            "<TenantSafetyGuardrail status=`"SANDBOX_VERIFIED`" verifiedAt=`"$verifiedUtc`">",
+            "  <Tenant>",
+            "    <Name>$([Security.SecurityElement]::Escape([string]$tName))</Name>",
+            "    <AuthorizedGuid>$([Security.SecurityElement]::Escape([string]$tId))</AuthorizedGuid>",
+            "    <AllowedPattern>$([Security.SecurityElement]::Escape([string]$AllowedPattern))</AllowedPattern>",
+            "  </Tenant>",
+            "</TenantSafetyGuardrail>"
+        ) -join [Environment]::NewLine
+        try { Set-Clipboard -Value $xmlReceipt -ErrorAction SilentlyContinue } catch { }
+    }
+
     if ($ShowBanner) {
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host "  | TENANT SAFETY GUARDRAIL VERIFICATION CARD       [SANDBOX VERIFIED]   |" -ForegroundColor Green
@@ -154,6 +171,7 @@ function Assert-TestTenantSafety {
         Write-Host ("  | Tenant Name     : {0,-50} |" -f $tName) -ForegroundColor White
         Write-Host ("  | Authorized GUID : {0,-50} |" -f $tId) -ForegroundColor Cyan
         Write-Host ("  | Allowed Pattern : {0,-50} |" -f $AllowedPattern) -ForegroundColor Gray
+        Write-Host "  | Feeds           : [MD] [HTML] [CSV] [JSON] [TSV] [XML]               |" -ForegroundColor DarkGray
         if ($CopyReceipt) {
             Write-Host "  | [CLIPBOARD] Markdown guardrail verification receipt copied.          |" -ForegroundColor Green
         }
@@ -192,6 +210,9 @@ function Assert-TestTenantSafety {
         }
         if ($CopyCsv) {
             Write-Host "  | [CLIPBOARD] CSV guardrail verification receipt copied.               |" -ForegroundColor Green
+        }
+        if ($CopyXml) {
+            Write-Host "  | [CLIPBOARD] XML guardrail verification receipt copied.               |" -ForegroundColor Green
         }
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }

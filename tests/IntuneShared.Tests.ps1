@@ -419,19 +419,21 @@ Describe 'IntuneShared Kernel Test Suite' {
             $probe.Details[6].Name | Should -Be 'Autopilot Endpoint'
         }
 
-        It 'Supports -CopyHtml and -CopyCsv clipboard parameters on Test-StagedNetwork' {
+        It 'Supports -CopyHtml, -CopyCsv, and -CopyXml clipboard parameters on Test-StagedNetwork' {
             $cmd = Get-Command Test-StagedNetwork
             $cmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
             $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopyXml') | Should -BeTrue
 
-            $probe = Test-StagedNetwork -TimeoutSeconds 1 -CopyHtml -CopyCsv -Quiet
+            $probe = Test-StagedNetwork -TimeoutSeconds 1 -CopyHtml -CopyCsv -CopyXml -Quiet
             $probe | Should -Not -BeNullOrEmpty
         }
 
-        It 'Supports -CopyHtml and -CopyCsv clipboard parameters on Assert-TestTenantSafety' {
+        It 'Supports -CopyHtml, -CopyCsv, and -CopyXml clipboard parameters on Assert-TestTenantSafety' {
             $cmd = Get-Command Assert-TestTenantSafety
             $cmd.Parameters.ContainsKey('CopyHtml') | Should -BeTrue
             $cmd.Parameters.ContainsKey('CopyCsv') | Should -BeTrue
+            $cmd.Parameters.ContainsKey('CopyXml') | Should -BeTrue
         }
 
         It 'Supports -CopySessionHtml and -CopySessionCsv on Connect-GraphToken' {
