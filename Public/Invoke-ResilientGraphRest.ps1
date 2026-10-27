@@ -53,7 +53,10 @@ function Invoke-ResilientGraphRest {
         [switch]$CopyHtml,
 
         [Parameter()]
-        [switch]$CopyCsv
+        [switch]$CopyCsv,
+
+        [Parameter()]
+        [switch]$CopyXml
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -127,6 +130,7 @@ function Invoke-ResilientGraphRest {
                 Write-Host ("  | Endpoint Path   : {0,-50} |" -f $endpointCell) -ForegroundColor White
                 Write-Host ("  | Latency         : {0,-50} |" -f "$($stopwatch.ElapsedMilliseconds) ms") -ForegroundColor Gray
                 Write-Host ("  | Retry Telemetry : {0,-50} |" -f "$retryCount / $MaxRetries retries") -ForegroundColor DarkGray
+                Write-Host "  | Format Feeds    : [MD] [HTML] [CSV] [JSON] [TSV] [XML]                 |" -ForegroundColor DarkGray
                 Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
                 Write-Host ""
             }
@@ -200,6 +204,19 @@ function Invoke-ResilientGraphRest {
                     ) -join "`r`n"
                     Set-Clipboard -Value $csvRest -ErrorAction Stop
                     Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (CSV) copied to clipboard." -ForegroundColor Green
+                } catch { }
+            }
+            if ($CopyXml) {
+                try {
+                    $xmlRest = @(
+                        '<?xml version="1.0" encoding="utf-8"?>',
+                        "<GraphRestExecutionReceipt method=`"$Method`" status=`"200 OK`" latencyMs=`"$($stopwatch.ElapsedMilliseconds)`" retries=`"$retryCount`" maxRetries=`"$MaxRetries`">",
+                        "  <Endpoint>$([Security.SecurityElement]::Escape([string]$effectiveUri))</Endpoint>",
+                        "  <ExecutedAtUtc>$([DateTime]::UtcNow.ToString('o'))</ExecutedAtUtc>",
+                        "</GraphRestExecutionReceipt>"
+                    ) -join [Environment]::NewLine
+                    Set-Clipboard -Value $xmlRest -ErrorAction Stop
+                    Write-Host "  [CLIPBOARD] Graph REST Execution Receipt (XML) copied to clipboard." -ForegroundColor Green
                 } catch { }
             }
         }

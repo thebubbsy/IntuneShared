@@ -45,7 +45,10 @@ function Connect-GraphToken {
         [switch]$CopySessionHtml,
 
         [Parameter()]
-        [switch]$CopySessionCsv
+        [switch]$CopySessionCsv,
+
+        [Parameter()]
+        [switch]$CopySessionXml
     )
 
     function Copy-GraphTokenToClipboard {
@@ -134,6 +137,22 @@ function Connect-GraphToken {
                 Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (CSV) to clipboard." -ForegroundColor Green
             } catch { }
         }
+        if ($CopySessionXml) {
+            try {
+                $xmlSession = @(
+                    '<?xml version="1.0" encoding="utf-8"?>',
+                    "<GraphSessionTelemetry permissionType=`"$([Security.SecurityElement]::Escape([string]$Context.PermissionType))`" sourceMode=`"$([Security.SecurityElement]::Escape([string]$SourceMode))`">",
+                    "  <TenantId>$([Security.SecurityElement]::Escape([string]$Context.TenantId))</TenantId>",
+                    "  <ClientId>$([Security.SecurityElement]::Escape([string]$Context.ClientId))</ClientId>",
+                    "  <TokenTtlMinutes>$ttlMins</TokenTtlMinutes>",
+                    "  <ExpiresUtc>$expUtc</ExpiresUtc>",
+                    "  <Scopes count=`"$scopeCount`">$([Security.SecurityElement]::Escape([string]$scopesJoined))</Scopes>",
+                    "</GraphSessionTelemetry>"
+                ) -join [Environment]::NewLine
+                Set-Clipboard -Value $xmlSession -ErrorAction Stop
+                Write-Host "  [CLIPBOARD] Copied Graph OAuth 2.0 Session Telemetry Receipt (XML) to clipboard." -ForegroundColor Green
+            } catch { }
+        }
     }
 
     function Write-GraphSessionHud {
@@ -148,6 +167,7 @@ function Connect-GraphToken {
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
         Write-Host ("  | Auth Mode : {0,-24} Tenant : {1,-22} |" -f "$($Context.PermissionType) ($SourceMode)", $Context.TenantId) -ForegroundColor Green
         Write-Host ("  | Token TTL : {0,-24} Scopes : {1,-22} |" -f "$ttlMins min ($expUtc)", "$scopeCount scope(s)") -ForegroundColor Gray
+        Write-Host "  | Format Feeds : [MD] [HTML] [CSV] [JSON] [TSV] [XML]                  |" -ForegroundColor DarkGray
         Write-Host "  +----------------------------------------------------------------------+" -ForegroundColor DarkCyan
     }
 
